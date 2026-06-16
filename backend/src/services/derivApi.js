@@ -34,11 +34,20 @@ async function syncDerivOperations(token, userId) {
       const profitLoss = parseFloat(trade.sell_price) - parseFloat(trade.buy_price);
       
       const fullDate = new Date(trade.purchase_time * 1000);
+      
+      const formatterDate = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const formatterTime = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      
+      const partsDate = formatterDate.formatToParts(fullDate);
+      const day = partsDate.find(p => p.type === 'day').value;
+      const month = partsDate.find(p => p.type === 'month').value;
+      const year = partsDate.find(p => p.type === 'year').value;
+      
       const operation = {
         user_id: userId,
         transaction_id: trade.transaction_id.toString(), // ID Único
-        operation_date: fullDate.toISOString().split('T')[0],
-        operation_time: fullDate.toTimeString().split(' ')[0],
+        operation_date: `${year}-${month}-${day}`,
+        operation_time: formatterTime.format(fullDate),
         asset: trade.shortcode.split('_')[1] || trade.shortcode, // Extrai R_100 ou V100 etc
         operation_type: trade.shortcode.includes('CALL') ? 'CALL' : 'PUT',
         entry_value: parseFloat(trade.buy_price),
