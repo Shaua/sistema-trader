@@ -20,7 +20,7 @@ async function syncDerivOperations(token, userId) {
       profit_table: 1,
       description: 1,
       sort: 'DESC',
-      limit: 50 // Busca os últimos 50 trades para sincronizar
+      limit: 500 // Busca os últimos 500 trades para sincronizar
     });
 
     const transactions = response.profit_table.transactions || [];
