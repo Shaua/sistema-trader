@@ -1,0 +1,14 @@
+{
+  "name": "sistema-trader-backend",
+  "version": "1.0.0",
+  "description": "Backend para Sistema de Gestão de Banca Deriv",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": ["trading", "deriv", "binary-options"],
+  "author": "",
+  "license": "ISC"
+}
