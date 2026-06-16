@@ -44,7 +44,7 @@ async function syncDerivOperations(token, userId) {
         entry_value: parseFloat(trade.buy_price),
         result: result,
         profit_loss: profitLoss,
-        notes: `Sincronizado da Deriv (Contrato ${trade.contract_id})`
+        observations: `Sincronizado da Deriv (Contrato ${trade.contract_id})`
       };
 
       // Upsert: Se transaction_id já existe, ignora/atualiza.
