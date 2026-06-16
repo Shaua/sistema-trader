@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link2, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
-import { api } from '../lib/api'
+import api from '../lib/api'
 
 export default function Integrations() {
   const { profile } = useStore()
