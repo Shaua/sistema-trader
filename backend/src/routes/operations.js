@@ -6,7 +6,7 @@ const authMiddleware = require('../middleware/auth');
 // GET /api/operations — listar operações
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { date, from, to, result, limit = 100, offset = 0 } = req.query;
+    const { date, from, to, result, limit = 1000, offset = 0 } = req.query;
     
     let query = supabase.from('operations').select('*').eq('user_id', req.userId);
     
