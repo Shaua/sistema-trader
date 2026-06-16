@@ -11,6 +11,7 @@ const depositsRoutes = require('./routes/deposits');
 const statsRoutes = require('./routes/stats');
 const reportsRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
+const derivRoutes = require('./routes/deriv');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/api/deposits', depositsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/deriv', derivRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

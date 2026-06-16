@@ -20,6 +20,7 @@ import Projection from './pages/Projection'
 import Reports from './pages/Reports'
 import Insights from './pages/Insights'
 import Admin from './pages/Admin'
+import Integrations from './pages/Integrations'
 
 // Loading screen
 function LoadingScreen() {
@@ -104,6 +105,7 @@ export default function App() {
             <Route path="/reports" element={<ProtectedLayout><Reports /></ProtectedLayout>} />
             <Route path="/insights" element={<ProtectedLayout><Insights /></ProtectedLayout>} />
             <Route path="/admin" element={<ProtectedLayout><Admin /></ProtectedLayout>} />
+            <Route path="/integrations" element={<ProtectedLayout><Integrations /></ProtectedLayout>} />
           </>
         ) : (
           <Route path="*" element={<Navigate to="/login" replace />} />

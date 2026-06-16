@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Settings, Shield, BookOpen, Calendar,
   ArrowUpCircle, ArrowDownCircle, BarChart2, TrendingUp,
   FileText, Users, Brain, ChevronLeft, X, LogOut,
-  Zap
+  Zap, Wallet, Link2
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 
@@ -41,8 +41,9 @@ const navItems = [
   {
     section: 'Configurações',
     items: [
-      { icon: Settings, label: 'Minha Banca', path: '/bank-config' },
+      { icon: Wallet, label: 'Minha Banca', path: '/bank' },
       { icon: Shield, label: 'Gestão de Risco', path: '/risk' },
+      { icon: Link2, label: 'Integração Deriv', path: '/integrations' },
     ]
   }
 ]
