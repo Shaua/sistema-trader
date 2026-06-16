@@ -10,7 +10,7 @@ class StatsEngine {
   /**
    * Calcula todos os KPIs do dashboard para um usuário
    */
-  async calculateDashboardKPIs(userId) {
+  async calculateDashboardKPIs(userId, filters = {}) {
     const [
       bankConfig,
       operations,
@@ -19,7 +19,7 @@ class StatsEngine {
       riskConfig
     ] = await Promise.all([
       this._getBankConfig(userId),
-      this._getOperations(userId),
+      this._getOperations(userId, filters),
       this._getWithdrawals(userId),
       this._getDeposits(userId),
       this._getRiskConfig(userId)
@@ -144,8 +144,8 @@ class StatsEngine {
   /**
    * Retorna dados para gráficos
    */
-  async getChartData(userId, period = '30d') {
-    const operations = await this._getOperations(userId);
+  async getChartData(userId, filters = {}) {
+    const operations = await this._getOperations(userId, filters);
     const bankConfig = await this._getBankConfig(userId);
     
     if (!bankConfig) return null;
@@ -249,10 +249,10 @@ class StatsEngine {
   }
 
   /**
-   * Gera insights de inteligência operacional
+   * Gera insights de performance
    */
-  async generateInsights(userId) {
-    const operations = await this._getOperations(userId);
+  async generateInsights(userId, filters = {}) {
+    const operations = await this._getOperations(userId, filters);
     const insights = [];
 
     if (operations.length < 5) {
@@ -315,8 +315,15 @@ class StatsEngine {
     return data;
   }
 
-  async _getOperations(userId) {
-    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).order('operation_date', { ascending: true });
+  async _getOperations(userId, filters = {}) {
+    let query = supabase.from('operations').select('*').eq('user_id', userId).order('operation_date', { ascending: true });
+    
+    if (filters.startDate) query = query.gte('operation_date', filters.startDate);
+    if (filters.endDate) query = query.lte('operation_date', filters.endDate);
+    if (filters.asset) query = query.eq('asset', filters.asset);
+    if (filters.type) query = query.eq('operation_type', filters.type);
+    
+    const { data } = await query;
     return data || [];
   }
 

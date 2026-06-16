@@ -18,6 +18,14 @@ export const useStore = create(
       bankConfig: null,
       riskConfig: null,
       
+      // Filters
+      dashboardFilters: {
+        startDate: '',
+        endDate: '',
+        asset: '',
+        type: ''
+      },
+      
       // KPIs
       kpis: null,
       charts: null,
@@ -50,11 +58,20 @@ export const useStore = create(
       fetchDashboard: async () => {
         try {
           set({ loading: true })
+          const filters = get().dashboardFilters
+          const query = new URLSearchParams()
+          if (filters.startDate) query.append('startDate', filters.startDate)
+          if (filters.endDate) query.append('endDate', filters.endDate)
+          if (filters.asset) query.append('asset', filters.asset)
+          if (filters.type) query.append('type', filters.type)
+          
+          const qs = query.toString() ? `?${query.toString()}` : ''
+
           const [kpisRes, chartsRes, alertsRes, insightsRes] = await Promise.all([
-            api.get('/stats/dashboard'),
-            api.get('/stats/charts'),
-            api.get('/stats/alerts'),
-            api.get('/stats/insights'),
+            api.get(`/stats/dashboard${qs}`),
+            api.get(`/stats/charts${qs}`),
+            api.get(`/stats/alerts${qs}`),
+            api.get(`/stats/insights${qs}`),
           ])
           set({
             kpis: kpisRes.data,
@@ -94,6 +111,8 @@ export const useStore = create(
       // ============================================================
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      
+      setDashboardFilters: (filters) => set((state) => ({ dashboardFilters: { ...state.dashboardFilters, ...filters } })),
       
       // ============================================================
       // Realtime Actions

@@ -12,6 +12,7 @@ import {
 import { motion } from 'framer-motion'
 import Header from '../components/layout/Header'
 import { KpiCard } from '../components/ui/Card'
+import DashboardFilterBar from '../components/DashboardFilterBar'
 import { useStore } from '../store/useStore'
 import { formatCurrency, formatPercent, formatNumber, valueColor, generateDemoData } from '../utils/formatters'
 
@@ -179,6 +180,8 @@ export default function Dashboard() {
 
       <div className="page-container">
         
+        <DashboardFilterBar />
+
         {/* Alertas de risco */}
         {alerts?.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
