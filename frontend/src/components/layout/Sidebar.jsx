@@ -41,7 +41,7 @@ const navItems = [
   {
     section: 'Configurações',
     items: [
-      { icon: Wallet, label: 'Minha Banca', path: '/bank' },
+      { icon: Wallet, label: 'Minha Banca', path: '/bank-config' },
       { icon: Shield, label: 'Gestão de Risco', path: '/risk' },
       { icon: Link2, label: 'Integração Deriv', path: '/integrations' },
     ]
