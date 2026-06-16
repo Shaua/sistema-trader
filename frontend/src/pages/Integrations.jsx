@@ -12,8 +12,12 @@ export default function Integrations() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   
-  // No mundo real, você poderia buscar o status atual da conexão no backend
-  // Por enquanto, assumimos que está conectado se já testou nesta sessão
+  useEffect(() => {
+    if (profile?.deriv_token) {
+      setToken(profile.deriv_token)
+      setStatus('connected')
+    }
+  }, [profile])
 
   const handleConnect = async (e) => {
     e.preventDefault()

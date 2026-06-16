@@ -33,10 +33,12 @@ async function syncDerivOperations(token, userId) {
       const result = parseFloat(trade.sell_price) > parseFloat(trade.buy_price) ? 'WIN' : 'LOSS';
       const profitLoss = parseFloat(trade.sell_price) - parseFloat(trade.buy_price);
       
+      const fullDate = new Date(trade.purchase_time * 1000);
       const operation = {
         user_id: userId,
         transaction_id: trade.transaction_id.toString(), // ID Único
-        date: new Date(trade.purchase_time * 1000).toISOString().split('T')[0],
+        operation_date: fullDate.toISOString().split('T')[0],
+        operation_time: fullDate.toTimeString().split(' ')[0],
         asset: trade.shortcode.split('_')[1] || trade.shortcode, // Extrai R_100 ou V100 etc
         operation_type: trade.shortcode.includes('CALL') ? 'CALL' : 'PUT',
         entry_value: parseFloat(trade.buy_price),
