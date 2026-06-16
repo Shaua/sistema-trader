@@ -7,7 +7,7 @@ const APP_ID = 1089; // Default testing App ID
 /**
  * Conecta na Deriv e busca as últimas operações
  */
-async function syncDerivOperations(token, userId) {
+async function syncDerivOperations(token, userId, limit = 500) {
   const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
   const api = new DerivAPI({ connection });
 
@@ -20,7 +20,7 @@ async function syncDerivOperations(token, userId) {
       profit_table: 1,
       description: 1,
       sort: 'DESC',
-      limit: 500 // Busca os últimos 500 trades para sincronizar
+      limit: limit // Busca os trades para sincronizar
     });
 
     const transactions = response.profit_table.transactions || [];

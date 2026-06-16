@@ -49,7 +49,7 @@ function ProtectedLayout({ children }) {
 }
 
 export default function App() {
-  const { setSession, user } = useStore()
+  const { setSession, user, setupRealtime, cleanupRealtime } = useStore()
   const [initializing, setInitializing] = useState(true)
 
   useEffect(() => {
@@ -66,6 +66,16 @@ export default function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Inicializar Realtime quando o usuário estiver logado
+  useEffect(() => {
+    if (user) {
+      setupRealtime()
+    } else {
+      cleanupRealtime()
+    }
+    return () => cleanupRealtime()
+  }, [user])
 
   if (initializing) return <LoadingScreen />
 

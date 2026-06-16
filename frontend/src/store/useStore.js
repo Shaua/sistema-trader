@@ -94,6 +94,36 @@ export const useStore = create(
       // ============================================================
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      
+      // ============================================================
+      // Realtime Actions
+      // ============================================================
+      realtimeSubscription: null,
+      setupRealtime: () => {
+        const userId = get().user?.id
+        if (!userId || get().realtimeSubscription) return
+
+        console.log('Configurando Supabase Realtime para operações...')
+        const subscription = supabase.channel('operations-channel')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'operations', filter: `user_id=eq.${userId}` },
+            (payload) => {
+              console.log('Atualização em tempo real recebida!', payload)
+              get().fetchDashboard() // Atualiza os gráficos e KPIs
+            }
+          )
+          .subscribe()
+          
+        set({ realtimeSubscription: subscription })
+      },
+      cleanupRealtime: () => {
+        const sub = get().realtimeSubscription
+        if (sub) {
+          supabase.removeChannel(sub)
+          set({ realtimeSubscription: null })
+        }
+      }
     }),
     {
       name: 'traderdesk-store',

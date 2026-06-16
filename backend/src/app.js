@@ -58,9 +58,29 @@ app.use((err, req, res, next) => {
   });
 });
 
+const supabase = require('./config/supabase');
+const { startRealtimeSync } = require('./services/derivRealtime');
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Sistema Trader API rodando na porta ${PORT}`);
+
+  try {
+    const { data: profiles, error } = await supabase
+      .from('user_profiles')
+      .select('id, deriv_token')
+      .not('deriv_token', 'is', null)
+      .neq('deriv_token', '');
+      
+    if (!error && profiles) {
+      console.log(`[Realtime] Iniciando monitoramento para ${profiles.length} usuários...`);
+      for (const p of profiles) {
+        startRealtimeSync(p.id, p.deriv_token);
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao inicializar realtime:', err.message);
+  }
 });
 
 module.exports = app;

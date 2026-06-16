@@ -124,9 +124,21 @@ export default function Integrations() {
 
           {status === 'connected' && (
             <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 500 }}>Sincronização em Tempo Real</h4>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 100, background: 'var(--color-success)20', color: 'var(--color-success)' }}>
+                  ATIVADA
+                </span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+                O sistema está monitorando sua conta Deriv 24/7. Suas operações aparecerão no Dashboard automaticamente no instante em que forem fechadas na corretora.
+              </p>
+              
+              <div style={{ margin: '24px 0', borderTop: '1px dashed var(--color-border)' }} />
+              
               <h4 style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>Sincronização Manual</h4>
               <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
-                Puxe as últimas operações da sua conta agora mesmo.
+                Forçar a sincronização para puxar o histórico antigo ou em caso de falha de conexão.
               </p>
               <button 
                 type="button"
@@ -136,7 +148,7 @@ export default function Integrations() {
                 style={{ justifyContent: 'center' }}
               >
                 <RefreshCw size={18} className={syncing ? 'spin' : ''} />
-                {syncing ? 'Sincronizando...' : 'Sincronizar Operações'}
+                {syncing ? 'Sincronizando...' : 'Sincronizar Operações Manualmente'}
               </button>
             </div>
           )}
