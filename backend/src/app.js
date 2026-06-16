@@ -44,6 +44,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
 });
 
+// Root route for Railway proxy
+app.get('/', (req, res) => {
+  res.send('Sistema Trader API is running');
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
