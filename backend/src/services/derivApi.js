@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const DerivAPI = require('@deriv/deriv-api');
+const DerivAPI = require('@deriv/deriv-api/dist/DerivAPIBasic');
 const supabase = require('../config/supabase');
 
 const APP_ID = 1089; // Default testing App ID
@@ -16,7 +16,7 @@ async function syncDerivOperations(token, userId) {
     await api.authorize(token);
 
     console.log('Buscando profit_table...');
-    const response = await api.basic.profitTable({
+    const response = await api.profitTable({
       profit_table: 1,
       description: 1,
       sort: 'DESC',
