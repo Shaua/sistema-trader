@@ -14,7 +14,8 @@ router.get('/', authMiddleware, async (req, res) => {
     if (from) query = query.gte('operation_date', from);
     if (to) query = query.lte('operation_date', to);
     if (result) query = query.eq('result', result);
-    if (account_type) query = query.eq('account_type', account_type);
+    const accountType = req.headers['x-account-type'];
+    if (accountType) query = query.ilike('account_type', accountType);
     
     query = query.order('operation_date', { ascending: false })
                  .order('operation_time', { ascending: false })
