@@ -17,7 +17,7 @@ const ASSETS = [
 ]
 
 export default function OperationsLog() {
-  const { kpis, fetchDashboard, bankConfig } = useStore()
+  const { kpis, fetchDashboard, bankConfig, activeAccountType } = useStore()
   const [operations, setOperations] = useState([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -48,7 +48,7 @@ export default function OperationsLog() {
 
   useEffect(() => {
     fetchOperations()
-  }, [filters])
+  }, [filters, activeAccountType])
 
   const fetchOperations = async () => {
     try {

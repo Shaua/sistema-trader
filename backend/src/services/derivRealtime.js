@@ -33,6 +33,7 @@ function startRealtimeSync(userId, token) {
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
       
       // Sincronização inicial para garantir que nenhuma operação foi perdida enquanto offline
+      /*
       try {
         console.log(`[Realtime] Executando sincronização inicial para ${userId}...`);
         await syncDerivOperations(token, userId, 20); // Puxa as últimas 20
@@ -40,6 +41,7 @@ function startRealtimeSync(userId, token) {
       } catch (err) {
         console.error(`[Realtime] Erro na sincronização inicial:`, err.message);
       }
+      */
     } 
     else if (msg.msg_type === 'transaction') {
       const tx = msg.transaction;
