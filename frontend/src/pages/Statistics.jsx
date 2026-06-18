@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BarChart2, TrendingUp, TrendingDown, Award, Zap } from 'lucide-react'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
@@ -10,41 +10,32 @@ import { StatRow } from '../components/ui/Card'
 import { useStore } from '../store/useStore'
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters'
 
-const DEMO_STATS = {
-  winRate: 65.4,
-  payoff: 1.32,
-  mathExpectancy: 8.45,
-  profitFactor: 2.18,
-  roiGeneral: 84.25,
-  roiMonthly: 12.5,
-  roiWeekly: 3.1,
-  roiDaily: 0.8,
-  maxDrawdown: 8.3,
-  currentDrawdown: 1.2,
-  bestDay: 84.50,
-  worstDay: -45.00,
-  bestWeek: 210.75,
-  worstWeek: -67.50,
-  bestMonth: 380.20,
-  worstMonth: -95.40,
-  maxWinStreak: 11,
-  maxLossStreak: 4,
-  totalOperations: 187,
-  avgWin: 15.40,
-  avgLoss: -11.67
+const EMPTY_STATS = {
+  winRate: 0, payoff: 0, mathExpectancy: 0, profitFactor: 0,
+  roiGeneral: 0, roiMonthly: 0, roiWeekly: 0, roiDaily: 0,
+  maxDrawdown: 0, currentDrawdown: 0,
+  bestDay: 0, worstDay: 0, bestWeek: 0, worstWeek: 0, bestMonth: 0, worstMonth: 0,
+  maxWinStreak: 0, maxLossStreak: 0, totalOperations: 0, avgWin: 0, avgLoss: 0
 }
 
 export default function Statistics() {
-  const { kpis, bankConfig } = useStore()
+  const { kpis, bankConfig, fetchDashboard } = useStore()
   const currency = bankConfig?.currency || 'USD'
-  const stats = kpis?.configured ? kpis : DEMO_STATS
+  
+  useEffect(() => {
+    if (!kpis) {
+      fetchDashboard()
+    }
+  }, [kpis, fetchDashboard])
+
+  const stats = kpis || EMPTY_STATS
 
   const radarData = [
-    { metric: 'Win Rate', value: Math.min((stats.winRate / 80) * 100, 100) },
-    { metric: 'Payoff', value: Math.min((stats.payoff / 2) * 100, 100) },
-    { metric: 'Consist.', value: Math.min(stats.profitFactor * 40, 100) },
-    { metric: 'Capital', value: Math.max(100 - stats.maxDrawdown * 3, 10) },
-    { metric: 'ROI', value: Math.min(stats.roiGeneral / 1.5, 100) },
+    { metric: 'Win Rate', value: Math.min(((stats.winRate || 0) / 80) * 100, 100) },
+    { metric: 'Payoff', value: Math.min(((stats.payoff || 0) / 2) * 100, 100) },
+    { metric: 'Consist.', value: Math.min((stats.profitFactor || 0) * 40, 100) },
+    { metric: 'Capital', value: Math.max(100 - (stats.maxDrawdown || 0) * 3, 10) },
+    { metric: 'ROI', value: Math.min((stats.roiGeneral || 0) / 1.5, 100) },
   ]
 
   const pieData = [

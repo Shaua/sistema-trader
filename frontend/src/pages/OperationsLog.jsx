@@ -16,15 +16,6 @@ const ASSETS = [
   'Step Index', 'Jump 10', 'Jump 25', 'Jump 50', 'Jump 75', 'Jump 100'
 ]
 
-const DEMO_OPERATIONS = [
-  { id: '1', operation_date: '2026-06-16', operation_time: '09:15:00', asset: 'EUR/USD', operation_type: 'CALL', entry_value: 20, result: 'WIN', profit_loss: 17, roi_pct: 85, observations: '' },
-  { id: '2', operation_date: '2026-06-16', operation_time: '10:30:00', asset: 'Volatility 75', operation_type: 'PUT', entry_value: 20, result: 'LOSS', profit_loss: -20, roi_pct: -100, observations: '' },
-  { id: '3', operation_date: '2026-06-16', operation_time: '11:00:00', asset: 'GBP/USD', operation_type: 'CALL', entry_value: 20, result: 'WIN', profit_loss: 17, roi_pct: 85, observations: '' },
-  { id: '4', operation_date: '2026-06-15', operation_time: '09:45:00', asset: 'Boom 1000', operation_type: 'CALL', entry_value: 25, result: 'WIN', profit_loss: 21.25, roi_pct: 85, observations: 'Boa entrada no rompimento' },
-  { id: '5', operation_date: '2026-06-15', operation_time: '14:20:00', asset: 'USD/JPY', operation_type: 'PUT', entry_value: 25, result: 'WIN', profit_loss: 21.25, roi_pct: 85, observations: '' },
-  { id: '6', operation_date: '2026-06-14', operation_time: '10:10:00', asset: 'EUR/USD', operation_type: 'PUT', entry_value: 20, result: 'LOSS', profit_loss: -20, roi_pct: -100, observations: 'Fakeout' },
-]
-
 export default function OperationsLog() {
   const { kpis, fetchDashboard, bankConfig } = useStore()
   const [operations, setOperations] = useState(DEMO_OPERATIONS)
@@ -32,6 +23,14 @@ export default function OperationsLog() {
   const [showModal, setShowModal] = useState(false)
   const [editingOp, setEditingOp] = useState(null)
   const [filter, setFilter] = useState({ result: '', date: '', asset: '' })
+  
+  const [filters, setFilters] = useState({
+    date: '',
+    from: '',
+    to: '',
+    result: '',
+    asset: ''
+  })
   const [search, setSearch] = useState('')
 
   const currency = bankConfig?.currency || 'USD'
@@ -49,15 +48,17 @@ export default function OperationsLog() {
 
   useEffect(() => {
     fetchOperations()
-  }, [])
+  }, [filters])
 
   const fetchOperations = async () => {
     try {
       setLoading(true)
-      const res = await api.get('/operations', { params: filter })
-      setOperations(res.data.data || DEMO_OPERATIONS)
-    } catch {
-      setOperations(DEMO_OPERATIONS)
+      const res = await api.get('/operations', { params: filters })
+      setOperations(res.data.data || [])
+      setTotal(res.data.total || 0)
+    } catch (err) {
+      console.error(err)
+      setOperations([])
     } finally {
       setLoading(false)
     }
