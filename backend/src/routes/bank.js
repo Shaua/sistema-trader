@@ -58,6 +58,7 @@ router.post('/', authMiddleware, async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
+    console.error('Erro ao salvar bank config:', err);
     res.status(500).json({ error: err.message });
   }
 });

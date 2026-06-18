@@ -42,7 +42,7 @@ export const useStore = create(
       setSession: async (session) => {
         set({ session, user: session?.user || null })
         if (session?.user) {
-          const { data } = await supabase.from('user_profiles').select('role, deriv_token, active_account_type').eq('id', session.user.id).single()
+          const { data } = await supabase.from('user_profiles').select('role, deriv_token, deriv_demo_token, active_account_type').eq('id', session.user.id).single()
           if (data) {
             set({ 
               profile: data,
