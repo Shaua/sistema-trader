@@ -315,7 +315,6 @@ class StatsEngine {
   // Métodos privados
   // ============================================================
 
-  async _getBankConfig(userId) {
   async _getOperations(userId, filters = {}) {
     let query = supabase.from('operations').select('*').eq('user_id', userId).order('operation_date', { ascending: true });
     
