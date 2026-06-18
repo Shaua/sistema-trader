@@ -17,11 +17,11 @@ const PERIODS = [
   { label: '365 Dias', days: 365 },
 ]
 
-function calculateProjection({ initialBalance, dailyGoalPct, tradingDaysPerMonth, winRate, payoff, totalDays }) {
+function calculateProjection({ initialBalance, dailyGoalPct, tradingDaysPerMonth, totalDays }) {
   const results = []
   let balance = parseFloat(initialBalance)
   const totalTradingDays = Math.round((totalDays / 30) * tradingDaysPerMonth)
-  const dailyReturn = (winRate / 100 * payoff - (1 - winRate / 100)) * (parseFloat(dailyGoalPct) / 100)
+  const dailyReturn = parseFloat(dailyGoalPct) / 100
 
   for (let day = 0; day <= totalTradingDays; day++) {
     if (day % Math.ceil(totalTradingDays / 30) === 0 || day === totalTradingDays) {
@@ -47,8 +47,6 @@ export default function Projection() {
     initialBalance: bankConfig?.current_balance || bankConfig?.initial_balance || 1000,
     dailyGoalPct: bankConfig?.daily_goal_pct || 2,
     tradingDaysPerMonth: 20,
-    winRate: 65,
-    payoff: 0.85,
   })
   const [selectedPeriod, setSelectedPeriod] = useState(90)
 
@@ -74,15 +72,13 @@ export default function Projection() {
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="card">
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Calculator size={18} style={{ color: 'var(--color-accent-light)' }} />
-              Parâmetros
+              Parâmetros de Juros Compostos
             </div>
 
             {[
               { name: 'initialBalance', label: 'Saldo Inicial', type: 'number', step: '10', min: '0', placeholder: '1000' },
-              { name: 'dailyGoalPct', label: 'Meta Diária (%)', type: 'number', step: '0.1', min: '0.1', max: '20', placeholder: '2' },
+              { name: 'dailyGoalPct', label: 'Meta Diária de Lucro (%)', type: 'number', step: '0.1', min: '0.1', max: '20', placeholder: '2' },
               { name: 'tradingDaysPerMonth', label: 'Dias Operados/Mês', type: 'number', step: '1', min: '1', max: '31', placeholder: '20' },
-              { name: 'winRate', label: 'Taxa de Acerto (%)', type: 'number', step: '1', min: '1', max: '99', placeholder: '65' },
-              { name: 'payoff', label: 'Payoff Médio (ex: 0.85 = 85%)', type: 'number', step: '0.01', min: '0.1', max: '10', placeholder: '0.85' },
             ].map(f => (
               <div key={f.name} className="form-group" style={{ marginBottom: 14 }}>
                 <label className="form-label">{f.label}</label>
