@@ -25,7 +25,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // Como a constraint pode ser apenas user_id, se usarmos upsert com a tabela alterada e não houver constraint combinada, 
     // precisamos deletar e inserir, ou verificar a existência. 
     // Delete prev config for this account_type:
-    await supabase.from('risk_configs').update({ is_active: false })
+    await supabase.from('risk_configs').delete()
       .eq('user_id', req.userId).ilike('account_type', accountType);
 
     const { data, error } = await supabase
