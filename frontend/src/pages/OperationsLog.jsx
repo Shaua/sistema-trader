@@ -18,7 +18,7 @@ const ASSETS = [
 
 export default function OperationsLog() {
   const { kpis, fetchDashboard, bankConfig } = useStore()
-  const [operations, setOperations] = useState(DEMO_OPERATIONS)
+  const [operations, setOperations] = useState([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editingOp, setEditingOp] = useState(null)
@@ -55,7 +55,6 @@ export default function OperationsLog() {
       setLoading(true)
       const res = await api.get('/operations', { params: filters })
       setOperations(res.data.data || [])
-      setTotal(res.data.total || 0)
     } catch (err) {
       console.error(err)
       setOperations([])
