@@ -12,10 +12,12 @@ router.get('/', authMiddleware, async (req, res) => {
       .select('*')
       .eq('user_id', req.userId)
       .eq('account_type', accountType)
-      .single();
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') throw error;
-    res.json(data || null);
+    if (error) throw error;
+    res.json(data ? data[0] : null);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

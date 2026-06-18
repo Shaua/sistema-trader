@@ -333,8 +333,10 @@ class StatsEngine {
     const { data } = await supabase.from('bank_configs').select('*')
       .eq('user_id', userId)
       .eq('account_type', accountType)
-      .single();
-    return data;
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    return data ? data[0] : null;
   }
 
   async _getRiskConfig(userId, filters = {}) {
@@ -342,8 +344,10 @@ class StatsEngine {
     const { data } = await supabase.from('risk_configs').select('*')
       .eq('user_id', userId)
       .eq('account_type', accountType)
-      .single();
-    return data;
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    return data ? data[0] : null;
   }
 
   async _getWithdrawals(userId) {

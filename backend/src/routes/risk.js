@@ -8,9 +8,13 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const accountType = req.headers['x-account-type'] || 'REAL';
     const { data, error } = await supabase
-      .from('risk_configs').select('*').eq('user_id', req.userId).eq('account_type', accountType).single();
-    if (error && error.code !== 'PGRST116') throw error;
-    res.json(data || null);
+      .from('risk_configs').select('*').eq('user_id', req.userId)      .eq('account_type', accountType)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+    res.json(data ? data[0] : null);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
