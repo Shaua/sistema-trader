@@ -4,30 +4,22 @@ const authMiddleware = require('../middleware/auth');
 const supabase = require('../config/supabase');
 const derivApi = require('../services/derivApi');
 
-// Rota protegida: Validar e salvar o Token da Deriv
-router.post('/validate', authMiddleware, async (req, res) => {
+// Rota protegida: Salvar os Tokens da Deriv
+router.post('/token', authMiddleware, async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: 'Token não fornecido' });
-
-    // 1. Testa a conexão com a Deriv
-    const validation = await derivApi.validateToken(token);
+    const { deriv_token, deriv_demo_token } = req.body;
     
-    if (!validation.valid) {
-      return res.status(400).json({ error: 'Token inválido', details: validation.error });
-    }
-
-    // 2. Salva o token no perfil do usuário no Supabase
+    // Atualiza o perfil do usuário no Supabase
     const { error: dbError } = await supabase
       .from('user_profiles')
-      .update({ deriv_token: token })
+      .update({ deriv_token, deriv_demo_token })
       .eq('id', req.userId);
 
     if (dbError) {
-      return res.status(500).json({ error: 'Erro ao salvar token no banco', details: dbError.message });
+      return res.status(500).json({ error: 'Erro ao salvar tokens no banco', details: dbError.message });
     }
 
-    res.json({ message: 'Token validado e salvo com sucesso!', account: validation.account });
+    res.json({ message: 'Tokens salvos com sucesso!' });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
   }
