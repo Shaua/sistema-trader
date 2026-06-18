@@ -100,10 +100,14 @@ export default function useDerivBot() {
     
     ws.current.onopen = () => {
       setStatus('Autorizando...');
-      if (profile?.deriv_token) {
-        ws.current.send(JSON.stringify({ authorize: profile.deriv_token }));
+      
+      const accountType = useStore.getState().activeAccountType || 'REAL';
+      const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
+
+      if (token) {
+        ws.current.send(JSON.stringify({ authorize: token }));
       } else {
-        setStatus('Token Deriv não encontrado. Cadastre em Integrações.');
+        setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
       }
       
       // Keep-alive ping

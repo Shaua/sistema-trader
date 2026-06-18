@@ -42,18 +42,37 @@ export const useStore = create(
       setSession: async (session) => {
         set({ session, user: session?.user || null })
         if (session?.user) {
-          const { data } = await supabase.from('user_profiles').select('role, deriv_token').eq('id', session.user.id).single()
-          if (data) set({ profile: data })
+          const { data } = await supabase.from('user_profiles').select('role, deriv_token, active_account_type').eq('id', session.user.id).single()
+          if (data) {
+            set({ 
+              profile: data,
+              activeAccountType: data.active_account_type || 'REAL'
+            })
+          }
         }
       },
       
       logout: async () => {
         await supabase.auth.signOut()
-        set({ user: null, session: null, profile: null, kpis: null, bankConfig: null })
+        set({ user: null, session: null, profile: null, kpis: null, bankConfig: null, activeAccountType: 'REAL' })
       },
       
       updateProfile: (updates) => set((state) => ({ profile: { ...state.profile, ...updates } })),
       
+      setActiveAccountType: async (type) => {
+        set({ activeAccountType: type });
+        try {
+          const { session } = get()
+          if (session?.user?.id) {
+            await supabase.from('user_profiles').update({ active_account_type: type }).eq('id', session.user.id)
+          }
+        } catch(e) { console.error(e) }
+        
+        await get().fetchDashboard()
+        await get().fetchBankConfig()
+        await get().fetchRiskConfig()
+      },
+
       // ============================================================
       // Data Actions
       // ============================================================

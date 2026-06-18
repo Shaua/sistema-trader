@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
+import { useStore } from '../store/useStore'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -12,6 +13,13 @@ api.interceptors.request.use(async (config) => {
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`
   }
+  
+  // Enviar a conta ativa para o backend filtrar as queries
+  try {
+    const accountType = useStore.getState().activeAccountType || 'REAL'
+    config.headers['X-Account-Type'] = accountType
+  } catch (e) {}
+
   return config
 })
 

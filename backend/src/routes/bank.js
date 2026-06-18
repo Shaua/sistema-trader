@@ -6,11 +6,12 @@ const authMiddleware = require('../middleware/auth');
 // GET /api/bank — obter configuração da banca
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const accountType = req.headers['x-account-type'] || 'REAL';
     const { data, error } = await supabase
       .from('bank_configs')
       .select('*')
       .eq('user_id', req.userId)
-      .eq('is_active', true)
+      .eq('account_type', accountType)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
@@ -24,12 +25,16 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const {
-      trader_name, broker, account_type, initial_balance, currency,
+      trader_name, broker, initial_balance, currency,
       operational_profile, daily_goal_pct, weekly_goal_pct, monthly_goal_pct
     } = req.body;
+    
+    const accountType = req.headers['x-account-type'] || 'REAL';
 
-    // Desativar configuração anterior
-    await supabase.from('bank_configs').update({ is_active: false }).eq('user_id', req.userId);
+    // Desativar configuração anterior da mesma conta
+    await supabase.from('bank_configs').update({ is_active: false })
+      .eq('user_id', req.userId)
+      .eq('account_type', accountType);
 
     const { data, error } = await supabase
       .from('bank_configs')
@@ -37,7 +42,7 @@ router.post('/', authMiddleware, async (req, res) => {
         user_id: req.userId,
         trader_name,
         broker: broker || 'Deriv',
-        account_type,
+        account_type: accountType,
         initial_balance: parseFloat(initial_balance),
         current_balance: parseFloat(initial_balance),
         currency,

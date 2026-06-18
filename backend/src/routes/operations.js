@@ -6,14 +6,15 @@ const authMiddleware = require('../middleware/auth');
 // GET /api/operations — listar operações
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { date, from, to, result, limit = 1000, offset = 0 } = req.query;
+    const { date, from, to, result, account_type, limit = 1000, offset = 0 } = req.query;
     
-    let query = supabase.from('operations').select('*').eq('user_id', req.userId);
+    let query = supabase.from('operations').select('*', { count: 'exact' }).eq('user_id', req.userId);
     
     if (date) query = query.eq('operation_date', date);
     if (from) query = query.gte('operation_date', from);
     if (to) query = query.lte('operation_date', to);
     if (result) query = query.eq('result', result);
+    if (account_type) query = query.eq('account_type', account_type);
     
     query = query.order('operation_date', { ascending: false })
                  .order('operation_time', { ascending: false })
@@ -38,10 +39,13 @@ router.post('/', authMiddleware, async (req, res) => {
     // Calcular ROI da operação
     const roi_pct = entry_value > 0 ? (profit_loss / entry_value) * 100 : 0;
 
+    const accountType = req.headers['x-account-type'] || 'REAL';
+
     const { data, error } = await supabase
       .from('operations')
       .insert({
         user_id: req.userId,
+        account_type: accountType,
         operation_date,
         operation_time: operation_time || new Date().toTimeString().split(' ')[0],
         asset,

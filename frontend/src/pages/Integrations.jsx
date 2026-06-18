@@ -1,40 +1,47 @@
 import React, { useState, useEffect } from 'react'
-import { Link2, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react'
+import { Link2, RefreshCw, AlertCircle, CheckCircle, Key } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import api from '../lib/api'
 
 export default function Integrations() {
-  const { profile, updateProfile } = useStore()
-  const [token, setToken] = useState('')
+  const { profile, updateProfile, loadUserProfile } = useStore()
+  const [tokens, setTokens] = useState({
+    deriv_token: '',
+    deriv_demo_token: ''
+  })
   const [status, setStatus] = useState('disconnected') // 'disconnected', 'validating', 'connected'
   const [syncing, setSyncing] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   
   useEffect(() => {
-    if (profile?.deriv_token) {
-      setToken(profile.deriv_token)
-      setStatus('connected')
+    if (profile) {
+      setTokens({
+        deriv_token: profile.deriv_token || '',
+        deriv_demo_token: profile.deriv_demo_token || ''
+      })
+      if (profile.deriv_token) setStatus('connected')
     }
   }, [profile])
 
-  const handleConnect = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    if (!token) return
-    
-    setStatus('validating')
+    setLoading(true)
     setError('')
     setSuccessMsg('')
     
     try {
-      const response = await api.post('/deriv/validate', { token })
-      updateProfile({ deriv_token: token })
+      await api.post('/deriv/token', tokens)
+      await loadUserProfile()
       setStatus('connected')
-      setSuccessMsg(`Conectado com sucesso! Conta Deriv: ${response.data.account}`)
+      setSuccessMsg('Tokens salvos com sucesso!')
     } catch (err) {
       setStatus('disconnected')
       setError(err.response?.data?.error || err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,64 +70,61 @@ export default function Integrations() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card"
-          style={{ background: 'var(--color-bg-secondary)' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--color-bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="https://deriv.com/static/favicons/favicon-32x32.png" alt="Deriv" style={{ width: 24, height: 24 }} onError={(e) => e.target.style.display = 'none'} />
-              {!document.querySelector('img[alt="Deriv"]') && <Link2 size={24} color="var(--color-text-primary)" />}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 16 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(255, 68, 79, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="https://deriv.com/static/1b57ea3474323c93bf99547d2f939eb5/21d60/deriv-logo.png" alt="Deriv" style={{ width: 24, height: 24, objectFit: 'contain' }} />
             </div>
             <div>
-              <h3 style={{ fontSize: 18, fontWeight: 600 }}>API da Deriv</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: status === 'connected' ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                {status === 'connected' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                {status === 'connected' ? 'Conectado' : 'Desconectado'}
-              </div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Integração Deriv</h2>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)' }}>Conecte suas contas (Real e Virtual) via Token API</p>
             </div>
           </div>
 
-          <form onSubmit={handleConnect}>
-            <div className="form-group">
-              <label className="form-label">API Token (Permissão: Read)</label>
+          <form onSubmit={handleSave}>
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Key size={14} /> Token API - Conta Real
+              </label>
               <input 
-                type="text" 
+                type="password" 
                 className="form-input" 
-                placeholder="Ex: u9m1x2y3z4..."
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                required
+                placeholder="Ex: aB1cD2eF3gH4iJ5"
+                value={tokens.deriv_token}
+                onChange={(e) => setTokens({...tokens, deriv_token: e.target.value})}
               />
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8 }}>
-                Gere o token no painel da Deriv em: Configurações &gt; API Token. Marque apenas a permissão "Read".
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Key size={14} /> Token API - Conta Virtual (Demo)
+              </label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="Ex: aB1cD2eF3gH4iJ5"
+                value={tokens.deriv_demo_token}
+                onChange={(e) => setTokens({...tokens, deriv_demo_token: e.target.value})}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Você pode gerar seus tokens no painel da Deriv em "Manage Account Settings" {'>'} "API Token". Marque as permissões de Read e Trade.
               </p>
             </div>
 
-            {error && (
-              <div className="alert alert-critical" style={{ marginTop: 16 }}>
-                {error}
-              </div>
-            )}
+            <button type="submit" className="btn btn-primary w-full" disabled={loading} style={{ justifyContent: 'center' }}>
+              {loading ? 'Validando e Salvando...' : 'Salvar Tokens'}
+            </button>
             
             {successMsg && (
               <div className="alert alert-success" style={{ marginTop: 16 }}>
                 {successMsg}
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-              <button 
-                type="submit" 
-                className="btn btn-primary"
-                disabled={status === 'validating'}
-                style={{ flex: 1, justifyContent: 'center' }}
-              >
-                {status === 'validating' ? 'Validando...' : 'Salvar e Conectar'}
-              </button>
-            </div>
+            {error && (
+              <div className="alert alert-critical" style={{ marginTop: 16 }}>
+                {error}
+              </div>
+            )}
           </form>
 
           {status === 'connected' && (

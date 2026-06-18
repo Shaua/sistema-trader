@@ -13,19 +13,19 @@ class StatsEngine {
   async calculateDashboardKPIs(userId, filters = {}) {
     const [
       bankConfig,
+      riskConfig,
       operations,
       withdrawals,
-      deposits,
-      riskConfig
+      deposits
     ] = await Promise.all([
-      this._getBankConfig(userId),
+      this._getBankConfig(userId, filters),
+      this._getRiskConfig(userId, filters),
       this._getOperations(userId, filters),
       this._getWithdrawals(userId),
-      this._getDeposits(userId),
-      this._getRiskConfig(userId)
+      this._getDeposits(userId)
     ]);
 
-    if (!bankConfig) {
+    if (!bankConfig || !riskConfig) {
       return null;
     }
 
@@ -145,8 +145,10 @@ class StatsEngine {
    * Retorna dados para gráficos
    */
   async getChartData(userId, filters = {}) {
-    const operations = await this._getOperations(userId, filters);
-    const bankConfig = await this._getBankConfig(userId);
+    const [bankConfig, operations] = await Promise.all([
+      this._getBankConfig(userId, filters),
+      this._getOperations(userId, filters)
+    ]);
     
     if (!bankConfig) return null;
 
@@ -197,18 +199,22 @@ class StatsEngine {
   /**
    * Verifica alertas de risco
    */
-  async checkRiskAlerts(userId) {
-    const [riskConfig, bankConfig, todayOps, weekOps, monthOps] = await Promise.all([
-      this._getRiskConfig(userId),
-      this._getBankConfig(userId),
-      this._getTodayOperations(userId),
-      this._getWeekOperations(userId),
-      this._getMonthOperations(userId)
+  async checkRiskAlerts(userId, filters = {}) {
+    const alerts = [];
+    
+    const [bankConfig, riskConfig] = await Promise.all([
+      this._getBankConfig(userId, filters),
+      this._getRiskConfig(userId, filters)
     ]);
 
-    if (!riskConfig || !bankConfig) return [];
+    if (!bankConfig || !riskConfig) return alerts;
 
-    const alerts = [];
+    const [todayOps, weekOps, monthOps] = await Promise.all([
+      this._getTodayOperations(userId, filters),
+      this._getWeekOperations(userId, filters),
+      this._getMonthOperations(userId, filters)
+    ]);
+
     const balance = parseFloat(bankConfig.current_balance) || parseFloat(bankConfig.initial_balance);
 
     // Calcular P&L de hoje
@@ -252,7 +258,11 @@ class StatsEngine {
    * Gera insights de performance
    */
   async generateInsights(userId, filters = {}) {
-    const operations = await this._getOperations(userId, filters);
+    const [bankConfig, operations] = await Promise.all([
+      this._getBankConfig(userId, filters),
+      this._getOperations(userId, filters)
+    ]);
+    
     const insights = [];
 
     if (operations.length < 5) {
@@ -306,25 +316,35 @@ class StatsEngine {
   // ============================================================
 
   async _getBankConfig(userId) {
-    const { data } = await supabase.from('bank_configs').select('*').eq('user_id', userId).eq('is_active', true).single();
-    return data;
-  }
-
-  async _getRiskConfig(userId) {
-    const { data } = await supabase.from('risk_configs').select('*').eq('user_id', userId).single();
-    return data;
-  }
-
   async _getOperations(userId, filters = {}) {
     let query = supabase.from('operations').select('*').eq('user_id', userId).order('operation_date', { ascending: true });
     
+    if (filters.accountType) query = query.eq('account_type', filters.accountType);
     if (filters.startDate) query = query.gte('operation_date', filters.startDate);
     if (filters.endDate) query = query.lte('operation_date', filters.endDate);
-    if (filters.asset) query = query.eq('asset', filters.asset);
+    if (filters.asset) query = query.ilike('asset', `%${filters.asset}%`);
     if (filters.type) query = query.eq('operation_type', filters.type);
-    
+
     const { data } = await query;
     return data || [];
+  }
+
+  async _getBankConfig(userId, filters = {}) {
+    const accountType = filters.accountType || 'REAL';
+    const { data } = await supabase.from('bank_configs').select('*')
+      .eq('user_id', userId)
+      .eq('account_type', accountType)
+      .single();
+    return data;
+  }
+
+  async _getRiskConfig(userId, filters = {}) {
+    const accountType = filters.accountType || 'REAL';
+    const { data } = await supabase.from('risk_configs').select('*')
+      .eq('user_id', userId)
+      .eq('account_type', accountType)
+      .single();
+    return data;
   }
 
   async _getWithdrawals(userId) {
@@ -337,22 +357,26 @@ class StatsEngine {
     return data || [];
   }
 
-  async _getTodayOperations(userId) {
+  async _getTodayOperations(userId, filters = {}) {
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).eq('operation_date', today);
+    const accountType = filters.accountType || 'REAL';
+    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).eq('account_type', accountType).eq('operation_date', today);
     return data || [];
   }
 
-  async _getWeekOperations(userId) {
-    const startOfWeek = this._getStartOfWeek(new Date());
-    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).gte('operation_date', startOfWeek);
+  async _getWeekOperations(userId, filters = {}) {
+    const today = new Date();
+    const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay())).toISOString().split('T')[0];
+    const accountType = filters.accountType || 'REAL';
+    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).eq('account_type', accountType).gte('operation_date', startOfWeek);
     return data || [];
   }
 
-  async _getMonthOperations(userId) {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).gte('operation_date', startOfMonth);
+  async _getMonthOperations(userId, filters = {}) {
+    const date = new Date();
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+    const accountType = filters.accountType || 'REAL';
+    const { data } = await supabase.from('operations').select('*').eq('user_id', userId).eq('account_type', accountType).gte('operation_date', startOfMonth);
     return data || [];
   }
 
