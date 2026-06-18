@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bot, Play, Square, Settings, Activity, Clock, ShieldAlert, BarChart2, TrendingUp, AlertCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useDerivBot from '../hooks/useDerivBot';
+import Header from '../components/layout/Header';
 
 export default function AIRobots() {
   const { config, updateConfig, stats, trades, isRunning, startBot, stopBot, status, authorized } = useDerivBot();
@@ -18,7 +19,9 @@ export default function AIRobots() {
   };
 
   return (
-    <div className="page-container" style={{ padding: 24, display: 'flex', gap: 24, height: 'calc(100vh - 64px)' }}>
+    <div style={{ background: 'var(--color-bg-primary)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Header title="Robôs IA" subtitle="Execute suas estratégias de forma automatizada" />
+      <div className="page-container" style={{ padding: 24, display: 'flex', gap: 24, flex: 1, overflow: 'hidden' }}>
       
       {/* Left Panel: Controls */}
       <div className="card" style={{ width: 340, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
@@ -243,6 +246,7 @@ export default function AIRobots() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
