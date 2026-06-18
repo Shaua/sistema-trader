@@ -66,6 +66,7 @@ router.post('/', authMiddleware, async (req, res) => {
 // PUT /api/bank/:id — atualizar configuração
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    delete req.body.account_type; // Nunca permitir sobrescrever o account_type via formulário
     const { data, error } = await supabase
       .from('bank_configs')
       .update(req.body)

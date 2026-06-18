@@ -112,15 +112,9 @@ export default function BankConfig() {
                   <div className="form-group">
                     <label className="form-label">Tipo de Conta</label>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {[{ value: 'real', label: 'Real' }, { value: 'demo', label: 'Demo' }].map(t => (
-                        <button key={t.value} type="button"
-                          className={`btn ${form.account_type === t.value ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ flex: 1 }}
-                          onClick={() => setForm(f => ({ ...f, account_type: t.value }))}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
+                      <div className="form-input" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, textTransform: 'uppercase' }}>
+                        {useStore.getState().activeAccountType || 'REAL'}
+                      </div>
                     </div>
                   </div>
                   <div className="form-group">
