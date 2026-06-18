@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react'
-import { BarChart2, TrendingUp, TrendingDown, Award, Zap } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { BarChart2, TrendingUp, TrendingDown, Award, Zap, Calendar as CalendarIcon } from 'lucide-react'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   PieChart, Pie, Cell, Tooltip, Legend
@@ -19,14 +19,42 @@ const EMPTY_STATS = {
 }
 
 export default function Statistics() {
-  const { kpis, bankConfig, fetchDashboard } = useStore()
+  const { kpis, bankConfig, fetchDashboard, setDashboardFilters, dashboardFilters } = useStore()
   const currency = bankConfig?.currency || 'USD'
+  const [activeFilter, setActiveFilter] = useState('all')
   
   useEffect(() => {
     if (!kpis) {
       fetchDashboard()
     }
   }, [kpis, fetchDashboard])
+
+  const applyFilter = async (type) => {
+    setActiveFilter(type)
+    const now = new Date()
+    let startDate = ''
+    let endDate = now.toISOString().split('T')[0]
+
+    if (type === 'today') {
+      startDate = endDate
+    } else if (type === 'week') {
+      const startOfWeek = new Date(now)
+      const day = startOfWeek.getDay()
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1)
+      startOfWeek.setDate(diff)
+      startDate = startOfWeek.toISOString().split('T')[0]
+    } else if (type === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    } else if (type === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
+    } else {
+      startDate = ''
+      endDate = ''
+    }
+
+    setDashboardFilters({ startDate, endDate })
+    await fetchDashboard()
+  }
 
   const stats = kpis || EMPTY_STATS
 
@@ -49,6 +77,35 @@ export default function Statistics() {
       
       <div className="page-container">
         
+        {/* Filtros de Data */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+          <CalendarIcon size={18} style={{ color: 'var(--color-text-muted)' }} />
+          <span style={{ fontSize: 14, fontWeight: 600, marginRight: 10 }}>Período:</span>
+          
+          {['today', 'week', 'month', 'year', 'all'].map(type => (
+            <button 
+              key={type}
+              onClick={() => applyFilter(type)}
+              style={{
+                background: activeFilter === type ? 'var(--color-primary)' : 'var(--color-bg-tertiary)',
+                color: activeFilter === type ? '#fff' : 'var(--color-text-primary)',
+                border: 'none',
+                padding: '6px 16px',
+                borderRadius: '6px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {type === 'today' ? 'Hoje' :
+               type === 'week' ? 'Esta Semana' :
+               type === 'month' ? 'Este Mês' :
+               type === 'year' ? 'Este Ano' : 'Tudo'}
+            </button>
+          ))}
+        </motion.div>
+
         {/* KPIs Principais */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
