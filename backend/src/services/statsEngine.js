@@ -332,7 +332,7 @@ class StatsEngine {
     const accountType = filters.accountType || 'REAL';
     const { data } = await supabase.from('bank_configs').select('*')
       .eq('user_id', userId)
-      .eq('account_type', accountType)
+      .ilike('account_type', accountType)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -343,8 +343,7 @@ class StatsEngine {
     const accountType = filters.accountType || 'REAL';
     const { data } = await supabase.from('risk_configs').select('*')
       .eq('user_id', userId)
-      .eq('account_type', accountType)
-      .eq('is_active', true)
+      .ilike('account_type', accountType)
       .order('created_at', { ascending: false })
       .limit(1);
     return data ? data[0] : null;

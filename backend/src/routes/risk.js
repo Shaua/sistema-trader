@@ -8,8 +8,7 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const accountType = req.headers['x-account-type'] || 'REAL';
     const { data, error } = await supabase
-      .from('risk_configs').select('*').eq('user_id', req.userId)      .eq('account_type', accountType)
-      .eq('is_active', true)
+      .from('risk_configs').select('*').eq('user_id', req.userId)      .ilike('account_type', accountType)
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -26,7 +25,8 @@ router.post('/', authMiddleware, async (req, res) => {
     // Como a constraint pode ser apenas user_id, se usarmos upsert com a tabela alterada e não houver constraint combinada, 
     // precisamos deletar e inserir, ou verificar a existência. 
     // Delete prev config for this account_type:
-    await supabase.from('risk_configs').delete().eq('user_id', req.userId).eq('account_type', accountType);
+    await supabase.from('risk_configs').update({ is_active: false })
+      .eq('user_id', req.userId).ilike('account_type', accountType);
 
     const { data, error } = await supabase
       .from('risk_configs')

@@ -11,7 +11,7 @@ router.get('/', authMiddleware, async (req, res) => {
       .from('bank_configs')
       .select('*')
       .eq('user_id', req.userId)
-      .eq('account_type', accountType)
+      .ilike('account_type', accountType)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -36,7 +36,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // Desativar configuração anterior da mesma conta
     await supabase.from('bank_configs').update({ is_active: false })
       .eq('user_id', req.userId)
-      .eq('account_type', accountType);
+      .ilike('account_type', accountType);
 
     const { data, error } = await supabase
       .from('bank_configs')
