@@ -257,8 +257,13 @@ export default function useDerivBot() {
 
   const handleTick = (tickData) => {
     if (!isRunningRef.current || isTradingRef.current) return;
-    const quote = tickData.quote.toString();
-    const lastDigit = parseInt(quote.slice(-1));
+    
+    // Fix: Format quote with 2 decimal places to prevent trailing zero dropping
+    // e.g. 739.80 -> toString() is "739.8" (last digit 8 incorrectly)
+    // with toFixed(2) -> "739.80" (last digit 0 correctly)
+    const pipSize = tickData.pip_size || 2;
+    const quoteStr = Number(tickData.quote).toFixed(pipSize);
+    const lastDigit = parseInt(quoteStr.slice(-1));
 
     statsRef.current.lastDigit = lastDigit;
     

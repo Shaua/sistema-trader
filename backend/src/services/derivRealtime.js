@@ -6,13 +6,14 @@ const activeConnections = new Map();
 /**
  * Inicia a conexão em tempo real com a Deriv para um usuário.
  */
-function startRealtimeSync(userId, token) {
-  if (activeConnections.has(userId)) {
-    console.log(`[Realtime] Conexão já ativa para o usuário ${userId}`);
+function startRealtimeSync(userId, token, accountType = 'REAL') {
+  const connectionKey = `${userId}_${accountType}`;
+  if (activeConnections.has(connectionKey)) {
+    console.log(`[Realtime] Conexão já ativa para o usuário ${userId} (${accountType})`);
     return;
   }
 
-  console.log(`[Realtime] Iniciando conexão para o usuário ${userId}...`);
+  console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType})...`);
   const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
   
   ws.on('open', () => {
@@ -24,34 +25,24 @@ function startRealtimeSync(userId, token) {
     const msg = JSON.parse(data);
     
     if (msg.error) {
-      console.error(`[Realtime] Erro da Deriv para o usuário ${userId}:`, msg.error.message);
+      console.error(`[Realtime] Erro da Deriv para o usuário ${userId} (${accountType}):`, msg.error.message);
     }
     
     if (msg.msg_type === 'authorize') {
-      console.log(`[Realtime] Autenticado para ${userId}. Assinando transactions...`);
+      console.log(`[Realtime] Autenticado para ${userId} (${accountType}). Assinando transactions...`);
       // 2. Assinar stream de transações
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
       
-      // Sincronização inicial para garantir que nenhuma operação foi perdida enquanto offline
-      /*
-      try {
-        console.log(`[Realtime] Executando sincronização inicial para ${userId}...`);
-        await syncDerivOperations(token, userId, 20); // Puxa as últimas 20
-        console.log(`[Realtime] Sincronização inicial concluída para ${userId}.`);
-      } catch (err) {
-        console.error(`[Realtime] Erro na sincronização inicial:`, err.message);
-      }
-      */
     } 
     else if (msg.msg_type === 'transaction') {
       const tx = msg.transaction;
       // Quando ocorre um SELL (fechamento de contrato), a operação terminou.
       if (tx && tx.action === 'sell') {
-         console.log(`[Realtime] Nova operação fechada detectada para ${userId}! Sincronizando...`);
+         console.log(`[Realtime] Nova operação fechada detectada para ${userId} (${accountType})! Sincronizando...`);
          try {
            // Sincroniza apenas as últimas 5 operações para ser super rápido e atualizar o banco
-           await syncDerivOperations(token, userId, 5);
-           console.log(`[Realtime] Sincronização rápida concluída para ${userId}.`);
+           await syncDerivOperations(token, userId, 5, accountType);
+           console.log(`[Realtime] Sincronização rápida concluída para ${userId} (${accountType}).`);
          } catch (err) {
            console.error(`[Realtime] Erro ao sincronizar rápida:`, err.message);
          }
@@ -60,19 +51,19 @@ function startRealtimeSync(userId, token) {
   });
 
   ws.on('close', () => {
-    console.log(`[Realtime] Conexão fechada para ${userId}. Tentando reconectar em 10s...`);
-    activeConnections.delete(userId);
+    console.log(`[Realtime] Conexão fechada para ${userId} (${accountType}). Tentando reconectar em 10s...`);
+    activeConnections.delete(connectionKey);
     setTimeout(() => {
-      startRealtimeSync(userId, token);
+      startRealtimeSync(userId, token, accountType);
     }, 10000);
   });
   
   ws.on('error', (err) => {
-    console.error(`[Realtime] Erro na conexão WS do usuário ${userId}:`, err.message);
+    console.error(`[Realtime] Erro na conexão WS do usuário ${userId} (${accountType}):`, err.message);
     ws.close();
   });
 
-  activeConnections.set(userId, ws);
+  activeConnections.set(connectionKey, ws);
 }
 
 /**

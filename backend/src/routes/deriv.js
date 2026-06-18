@@ -9,6 +9,28 @@ router.post('/token', authMiddleware, async (req, res) => {
   try {
     const { deriv_token, deriv_demo_token } = req.body;
     
+    // Validate Real Token
+    if (deriv_token) {
+      const validation = await derivApi.validateToken(deriv_token);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Token Real inválido: ' + validation.error });
+      }
+      if (validation.account.startsWith('VRTC')) {
+        return res.status(400).json({ error: 'Token Real não pode ser uma conta virtual (VRTC).' });
+      }
+    }
+
+    // Validate Demo Token
+    if (deriv_demo_token) {
+      const validation = await derivApi.validateToken(deriv_demo_token);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Token Demo inválido: ' + validation.error });
+      }
+      if (!validation.account.startsWith('VRTC')) {
+        return res.status(400).json({ error: 'Token Demo deve ser uma conta virtual (VRTC).' });
+      }
+    }
+
     // Atualiza o perfil do usuário no Supabase
     const { error: dbError } = await supabase
       .from('user_profiles')
@@ -28,19 +50,27 @@ router.post('/token', authMiddleware, async (req, res) => {
 // Rota protegida: Disparar sincronização
 router.post('/sync', authMiddleware, async (req, res) => {
   try {
+    const accountType = req.headers['x-account-type'] || 'REAL';
+
     // 1. Busca o token do usuário no banco
     const { data: profile, error } = await supabase
       .from('user_profiles')
-      .select('deriv_token')
+      .select('deriv_token, deriv_demo_token')
       .eq('id', req.userId)
       .single();
 
-    if (error || !profile || !profile.deriv_token) {
-      return res.status(400).json({ error: 'Nenhum token da Deriv encontrado. Conecte sua conta primeiro.' });
+    if (error || !profile) {
+      return res.status(400).json({ error: 'Perfil não encontrado.' });
+    }
+
+    const tokenToUse = accountType === 'DEMO' ? profile.deriv_demo_token : profile.deriv_token;
+
+    if (!tokenToUse) {
+      return res.status(400).json({ error: `Nenhum token da Deriv encontrado para a conta ${accountType}.` });
     }
 
     // 2. Executa a sincronização chamando a API da Deriv
-    const result = await derivApi.syncDerivOperations(profile.deriv_token, req.userId);
+    const result = await derivApi.syncDerivOperations(tokenToUse, req.userId, 500, accountType);
 
     res.json({ message: 'Sincronização concluída com sucesso', synced_count: result.count });
   } catch (error) {

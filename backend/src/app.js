@@ -68,14 +68,17 @@ app.listen(PORT, '0.0.0.0', async () => {
   try {
     const { data: profiles, error } = await supabase
       .from('user_profiles')
-      .select('id, deriv_token')
-      .not('deriv_token', 'is', null)
-      .neq('deriv_token', '');
+      .select('id, deriv_token, deriv_demo_token');
       
     if (!error && profiles) {
       console.log(`[Realtime] Iniciando monitoramento para ${profiles.length} usuários...`);
       for (const p of profiles) {
-        startRealtimeSync(p.id, p.deriv_token);
+        if (p.deriv_token) {
+          startRealtimeSync(p.id, p.deriv_token, 'REAL');
+        }
+        if (p.deriv_demo_token) {
+          startRealtimeSync(p.id, p.deriv_demo_token, 'DEMO');
+        }
       }
     }
   } catch (err) {

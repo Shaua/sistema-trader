@@ -9,7 +9,17 @@ async function testAuth() {
     const token = 'S57DZsVfW07bqxH';
     const auth = await api.authorize(token);
     console.log('Is Virtual:', auth.authorize.is_virtual);
-    console.log('Login ID:', auth.authorize.loginid);
+    
+    const response = await api.profitTable({
+      profit_table: 1,
+      description: 1,
+      sort: 'DESC',
+      limit: 50
+    });
+    
+    const transactions = response.profit_table.transactions || [];
+    const appIds = [...new Set(transactions.map(t => t.app_id))];
+    console.log('Unique App IDs found in recent trades:', appIds);
   } catch (error) {
     console.error('Erro:', error);
   } finally {

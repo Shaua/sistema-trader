@@ -7,12 +7,12 @@ const APP_ID = 1089; // Default testing App ID
 /**
  * Conecta na Deriv e busca as últimas operações
  */
-async function syncDerivOperations(token, userId, limit = 500) {
+async function syncDerivOperations(token, userId, limit = 500, accountType = 'REAL') {
   const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
   const api = new DerivAPI({ connection });
 
   try {
-    console.log(`Autenticando na Deriv para usuário ${userId}...`);
+    console.log(`Autenticando na Deriv para usuário ${userId} (${accountType})...`);
     await api.authorize(token);
 
     console.log('Buscando profit_table...');
@@ -29,6 +29,14 @@ async function syncDerivOperations(token, userId, limit = 500) {
     let syncedCount = 0;
 
     for (const trade of transactions) {
+      console.log(`[DEBUG] Trade ${trade.transaction_id} app_id:`, trade.app_id);
+      
+      // Filtra para salvar APENAS as operações feitas pelo nosso robô (App ID 1089)
+      // Como a Deriv pode omitir o app_id, só ignoramos se houver um app_id explicitamente diferente
+      if (trade.app_id && Number(trade.app_id) !== APP_ID) {
+        continue;
+      }
+
       // Converte dados da Deriv para o nosso modelo
       const result = parseFloat(trade.sell_price) > parseFloat(trade.buy_price) ? 'WIN' : 'LOSS';
       const profitLoss = parseFloat(trade.sell_price) - parseFloat(trade.buy_price);
@@ -43,13 +51,21 @@ async function syncDerivOperations(token, userId, limit = 500) {
       const month = partsDate.find(p => p.type === 'month').value;
       const year = partsDate.find(p => p.type === 'year').value;
       
+      let opType = 'UNKNOWN';
+      if (trade.shortcode.includes('CALL')) opType = 'CALL';
+      else if (trade.shortcode.includes('PUT')) opType = 'PUT';
+      else if (trade.shortcode.includes('DIGITUNDER')) opType = 'DIGITUNDER';
+      else if (trade.shortcode.includes('DIGITOVER')) opType = 'DIGITOVER';
+      else opType = trade.shortcode.split('_')[0] || 'OTHER';
+      
       const operation = {
         user_id: userId,
+        account_type: accountType,
         transaction_id: trade.transaction_id.toString(), // ID Único
         operation_date: `${year}-${month}-${day}`,
         operation_time: formatterTime.format(fullDate),
         asset: trade.shortcode.split('_')[1] || trade.shortcode, // Extrai R_100 ou V100 etc
-        operation_type: trade.shortcode.includes('CALL') ? 'CALL' : 'PUT',
+        operation_type: opType,
         entry_value: parseFloat(trade.buy_price),
         result: result,
         profit_loss: profitLoss,
