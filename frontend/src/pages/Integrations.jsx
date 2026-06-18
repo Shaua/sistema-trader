@@ -34,7 +34,10 @@ export default function Integrations() {
     
     try {
       await api.post('/deriv/token', tokens)
-      await loadUserProfile()
+      updateProfile({ 
+        deriv_token: tokens.deriv_token, 
+        deriv_demo_token: tokens.deriv_demo_token 
+      })
       setStatus('connected')
       setSuccessMsg('Tokens salvos com sucesso!')
     } catch (err) {
