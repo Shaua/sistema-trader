@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Settings, Shield, BookOpen, Calendar,
   ArrowUpCircle, ArrowDownCircle, BarChart2, TrendingUp,
   FileText, Users, Brain, ChevronLeft, X, LogOut,
-  Zap, Wallet, Link2
+  Zap, Wallet, Link2, Bot
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 
@@ -20,6 +20,7 @@ const navItems = [
     section: 'Operações',
     items: [
       { icon: BookOpen, label: 'Diário Operacional', path: '/operations' },
+      { icon: Bot, label: 'Robôs IA', path: '/robots' },
       { icon: Calendar, label: 'Calendário', path: '/calendar' },
     ]
   },

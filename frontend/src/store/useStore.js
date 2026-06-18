@@ -42,7 +42,7 @@ export const useStore = create(
       setSession: async (session) => {
         set({ session, user: session?.user || null })
         if (session?.user) {
-          const { data } = await supabase.from('user_profiles').select('role').eq('id', session.user.id).single()
+          const { data } = await supabase.from('user_profiles').select('role, deriv_token').eq('id', session.user.id).single()
           if (data) set({ profile: data })
         }
       },
@@ -51,6 +51,8 @@ export const useStore = create(
         await supabase.auth.signOut()
         set({ user: null, session: null, profile: null, kpis: null, bankConfig: null })
       },
+      
+      updateProfile: (updates) => set((state) => ({ profile: { ...state.profile, ...updates } })),
       
       // ============================================================
       // Data Actions

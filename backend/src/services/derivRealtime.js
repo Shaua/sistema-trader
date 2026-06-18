@@ -23,10 +23,23 @@ function startRealtimeSync(userId, token) {
   ws.on('message', async (data) => {
     const msg = JSON.parse(data);
     
+    if (msg.error) {
+      console.error(`[Realtime] Erro da Deriv para o usuário ${userId}:`, msg.error.message);
+    }
+    
     if (msg.msg_type === 'authorize') {
       console.log(`[Realtime] Autenticado para ${userId}. Assinando transactions...`);
       // 2. Assinar stream de transações
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
+      
+      // Sincronização inicial para garantir que nenhuma operação foi perdida enquanto offline
+      try {
+        console.log(`[Realtime] Executando sincronização inicial para ${userId}...`);
+        await syncDerivOperations(token, userId, 20); // Puxa as últimas 20
+        console.log(`[Realtime] Sincronização inicial concluída para ${userId}.`);
+      } catch (err) {
+        console.error(`[Realtime] Erro na sincronização inicial:`, err.message);
+      }
     } 
     else if (msg.msg_type === 'transaction') {
       const tx = msg.transaction;

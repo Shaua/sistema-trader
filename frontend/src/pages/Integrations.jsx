@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore'
 import api from '../lib/api'
 
 export default function Integrations() {
-  const { profile } = useStore()
+  const { profile, updateProfile } = useStore()
   const [token, setToken] = useState('')
   const [status, setStatus] = useState('disconnected') // 'disconnected', 'validating', 'connected'
   const [syncing, setSyncing] = useState(false)
@@ -29,6 +29,7 @@ export default function Integrations() {
     
     try {
       const response = await api.post('/deriv/validate', { token })
+      updateProfile({ deriv_token: token })
       setStatus('connected')
       setSuccessMsg(`Conectado com sucesso! Conta Deriv: ${response.data.account}`)
     } catch (err) {

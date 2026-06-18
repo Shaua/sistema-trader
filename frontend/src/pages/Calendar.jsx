@@ -6,34 +6,34 @@ import { formatCurrency, formatDate, MONTHS } from '../utils/formatters'
 import { useStore } from '../store/useStore'
 import api from '../lib/api'
 
-// Dados de demo
-const DEMO_DAILY = {
-  '2026-06-16': { net_result: 26.50, total_operations: 7, wins: 5, losses: 2 },
-  '2026-06-15': { net_result: 42.25, total_operations: 6, wins: 5, losses: 1 },
-  '2026-06-14': { net_result: -20.00, total_operations: 8, wins: 3, losses: 5 },
-  '2026-06-13': { net_result: 15.30, total_operations: 5, wins: 4, losses: 1 },
-  '2026-06-12': { net_result: -8.50, total_operations: 4, wins: 1, losses: 3 },
-  '2026-06-11': { net_result: 38.75, total_operations: 9, wins: 7, losses: 2 },
-  '2026-06-10': { net_result: 22.00, total_operations: 6, wins: 5, losses: 1 },
-  '2026-06-09': { net_result: 0, total_operations: 0, wins: 0, losses: 0 },
-  '2026-06-08': { net_result: 0, total_operations: 0, wins: 0, losses: 0 },
-  '2026-06-07': { net_result: -35.00, total_operations: 10, wins: 3, losses: 7 },
-  '2026-06-06': { net_result: 18.50, total_operations: 6, wins: 5, losses: 1 },
-  '2026-06-05': { net_result: 45.20, total_operations: 8, wins: 7, losses: 1 },
-  '2026-06-04': { net_result: 12.75, total_operations: 5, wins: 4, losses: 1 },
-  '2026-06-03': { net_result: -15.00, total_operations: 7, wins: 2, losses: 5 },
-}
-
 const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 export default function CalendarView() {
   const { bankConfig } = useStore()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [dailyData, setDailyData] = useState(DEMO_DAILY)
+  const [dailyData, setDailyData] = useState({})
   const [selectedDay, setSelectedDay] = useState(null)
   const [dayOps, setDayOps] = useState([])
 
   const currency = bankConfig?.currency || 'USD'
+
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      try {
+        const res = await api.get('/stats/dashboard')
+        if (res.data && res.data.dailySummaries) {
+          const map = {}
+          res.data.dailySummaries.forEach(d => {
+            map[d.date] = d
+          })
+          setDailyData(map)
+        }
+      } catch (err) {
+        console.error('Failed to fetch calendar data', err)
+      }
+    }
+    fetchCalendarData()
+  }, [])
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()

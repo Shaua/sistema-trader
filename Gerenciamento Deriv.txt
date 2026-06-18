@@ -1,0 +1,25 @@
+Excelente pergunta. Ir para a conta real exige muito mais cabeça fria e um gerenciamento matemático rigoroso, principalmente porque estratégias de probabilidade alta (Under 8 tem ~80% de acerto) e Martingale cobram caro no momento em que a estatística falha.
+
+Vamos abrir a matemática do modo **Conservador** (Multiplicador de 2.7x) para definir os seus limites:
+
+### 1. O Risco de um Ciclo (Custo do Stop Loss)
+Se você começar com $1, o seu pior cenário (atingir as 4 perdas seguidas) vai custar:
+`$1.00 + $2.70 + $7.29 + $19.68 = $30.67`
+
+A chance estatística de errar 4 vezes seguidas (dando dígito 8 ou 9) é de **0,16%** (cerca de 1 vez a cada 600 rodadas). É raro, mas **vai acontecer**. Por isso sua banca precisa estar preparada para absorver essa "pancada" sem quebrar.
+
+### 2. Banca Mínima Indicada
+Para operar com segurança usando uma aposta inicial de **$1.00**, o mínimo absoluto recomendado é uma banca de **$100 a $150**. 
+Dessa forma, se o pior cenário estatístico bater (perda de ~$31), você ainda terá de 70% a 80% do seu capital para operar nos próximos dias e recuperar tranquilamente. Se você for operar com bancas menores (ex: $50), se o robô pegar uma sequência ruim logo no início, ele vai levar 60% da sua banca embora de uma vez.
+
+*(Dica: A Deriv aceita apostas mínimas menores que 1 dólar em alguns mercados, como $0.35 ou $0.50. Se sua banca for menor que $100, ajuste a "Quantia inicial" para $0.50).*
+
+### 3. Gerenciamento Diário (Regra de Ouro)
+Como robôs com payout de 23% exigem muitas vitórias para dar um lucro substancial, a ganância é a maior inimiga. O ideal é o estilo "Bate e Foge" (*Hit and Run*):
+
+- **Meta de Lucro Alvo:** **2% a 3%** da sua banca. (Para uma banca de $100, configure o alvo para `$2.00` ou `$3.00`). É muito melhor fazer sessões curtas de $2 e fechar o dia positivo, do que deixar o robô exposto a horas no mercado.
+- **Stop Loss:** Configure seu stop loss exatamente no custo de perder 1 ciclo inteiro, ou seja, em **$31**. 
+- **Modo:** Recomendo manter no Modo **Preciso**, pois como ele exige 3 perdas virtuais antes de entrar, ele te protege ativamente daquelas sequências anômalas onde saem vários oitos seguidos no mercado.
+
+**Plano de Ação Sugerido:** 
+Ligue o robô, deixe ele bater a meta curtinha de $2.00 ou $3.00 (vai levar uns 10 a 15 minutinhos dependendo da volatilidade), bata a meta e desligue. Faça isso consistentemente todos os dias e o poder dos juros compostos vai escalar o seu saldo!
