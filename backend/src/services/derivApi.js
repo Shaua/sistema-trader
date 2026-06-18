@@ -51,13 +51,6 @@ async function syncDerivOperations(token, userId, limit = 500, accountType = 'RE
       const month = partsDate.find(p => p.type === 'month').value;
       const year = partsDate.find(p => p.type === 'year').value;
       
-      let opType = 'UNKNOWN';
-      if (trade.shortcode.includes('CALL')) opType = 'CALL';
-      else if (trade.shortcode.includes('PUT')) opType = 'PUT';
-      else if (trade.shortcode.includes('DIGITUNDER')) opType = 'DIGITUNDER';
-      else if (trade.shortcode.includes('DIGITOVER')) opType = 'DIGITOVER';
-      else opType = trade.shortcode.split('_')[0] || 'OTHER';
-      
       const operation = {
         user_id: userId,
         account_type: accountType,
@@ -65,7 +58,7 @@ async function syncDerivOperations(token, userId, limit = 500, accountType = 'RE
         operation_date: `${year}-${month}-${day}`,
         operation_time: formatterTime.format(fullDate),
         asset: trade.shortcode.split('_')[1] || trade.shortcode, // Extrai R_100 ou V100 etc
-        operation_type: opType,
+        operation_type: trade.shortcode.includes('CALL') ? 'CALL' : 'PUT',
         entry_value: parseFloat(trade.buy_price),
         result: result,
         profit_loss: profitLoss,
