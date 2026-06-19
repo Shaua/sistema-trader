@@ -9,6 +9,22 @@ export default function AIRobots() {
   const [activeTab, setActiveTab] = useState('negociacoes'); // grafico, digitos, negociacoes, registros
   const [deepAnalysis, setDeepAnalysis] = useState(false);
 
+  const getMarketName = (symbol) => {
+    const markets = {
+      '1HZ10V': 'Volatility 10 (1s) Index',
+      '1HZ25V': 'Volatility 25 (1s) Index',
+      '1HZ50V': 'Volatility 50 (1s) Index',
+      '1HZ75V': 'Volatility 75 (1s) Index',
+      '1HZ100V': 'Volatility 100 (1s) Index',
+      'R_10': 'Volatility 10 Index',
+      'R_25': 'Volatility 25 Index',
+      'R_50': 'Volatility 50 Index',
+      'R_75': 'Volatility 75 Index',
+      'R_100': 'Volatility 100 Index'
+    };
+    return markets[symbol] || symbol || 'Volatility 100 (1s) Index';
+  };
+
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: stats.currency || 'USD' }).format(val);
   };
@@ -92,7 +108,16 @@ export default function AIRobots() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><BarChart2 size={16} /> Mercado</div>
             <select className="form-input" style={{ width: 150 }} value={config.market} onChange={(e) => updateConfig('market', e.target.value)} disabled={isRunning}>
+              <option value="1HZ10V">Volatility 10 (1s) Index</option>
+              <option value="1HZ25V">Volatility 25 (1s) Index</option>
+              <option value="1HZ50V">Volatility 50 (1s) Index</option>
+              <option value="1HZ75V">Volatility 75 (1s) Index</option>
               <option value="1HZ100V">Volatility 100 (1s) Index</option>
+              <option value="R_10">Volatility 10 Index</option>
+              <option value="R_25">Volatility 25 Index</option>
+              <option value="R_50">Volatility 50 Index</option>
+              <option value="R_75">Volatility 75 Index</option>
+              <option value="R_100">Volatility 100 Index</option>
             </select>
           </div>
 
@@ -203,7 +228,7 @@ export default function AIRobots() {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500 }}>
-                            <Activity size={16} /> Volatility 100 (1s) Index
+                            <Activity size={16} /> {getMarketName(trade.market || config.market)}
                           </div>
                           <div style={{ display: 'flex', gap: 12, fontWeight: 600 }}>
                             <span>${trade.amount.toFixed(2)}</span>

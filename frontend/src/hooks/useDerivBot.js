@@ -258,6 +258,24 @@ export default function useDerivBot() {
   const handleTick = (tickData) => {
     if (!isRunningRef.current || isTradingRef.current) return;
     
+    // Sistema Anti-Congelamento (Proteção contra falhas da API da Deriv)
+    if (statsRef.current.lastQuote === tickData.quote) {
+      statsRef.current.frozenTicks = (statsRef.current.frozenTicks || 0) + 1;
+    } else {
+      statsRef.current.frozenTicks = 0;
+      statsRef.current.lastQuote = tickData.quote;
+    }
+
+    // Se o preço ficar EXATAMENTE igual por 8 ticks seguidos (o que é impossível em Volatility), a API travou.
+    if (statsRef.current.frozenTicks >= 8) {
+      statsRef.current.frozenTicks = 0; // reseta
+      setStatus('Sinal da Deriv congelado. Forçando reconexão...');
+      if (ws.current) {
+        ws.current.close(); // Isso vai disparar o evento onclose que faz o Auto-Resume automático!
+      }
+      return;
+    }
+
     // Fix: Format quote with 2 decimal places to prevent trailing zero dropping
     // e.g. 739.80 -> toString() is "739.8" (last digit 8 incorrectly)
     // with toFixed(2) -> "739.80" (last digit 0 correctly)
@@ -380,6 +398,7 @@ export default function useDerivBot() {
       won: won,
       entry: contract.entry_tick_display_value,
       exit: contract.exit_tick_display_value,
+      market: configRef.current.market
     };
     
     setTrades(prev => [newTrade, ...prev]);
