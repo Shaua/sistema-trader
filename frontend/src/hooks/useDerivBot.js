@@ -92,40 +92,66 @@ export default function useDerivBot() {
 
   const connect = useCallback(() => {
     if (ws.current) {
+      ws.current.onclose = null;
+      ws.current.onerror = null;
+      ws.current.onmessage = null;
+      ws.current.onopen = null;
+      if (ws.current.pingInterval) clearInterval(ws.current.pingInterval);
+      if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
+      if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
       ws.current.close();
     }
     
     setStatus('Conectando...');
-    ws.current = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+    const socket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+    ws.current = socket;
     
-    ws.current.onopen = () => {
+    socket.onopen = () => {
       setStatus('Autorizando...');
       
       const accountType = useStore.getState().activeAccountType || 'REAL';
       const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
 
       if (token) {
-        ws.current.send(JSON.stringify({ authorize: token }));
+        socket.send(JSON.stringify({ authorize: token }));
+        
+        socket.authTimeout = setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.close();
+          }
+        }, 15000);
       } else {
         setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
       }
       
-      // Keep-alive ping
-      ws.current.pingInterval = setInterval(() => {
-        if (ws.current?.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({ ping: 1 }));
-        }
-      }, 60000); // Aumentado para 60s para evitar rate limit
+      setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN) return;
+        socket.pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ ping: 1 }));
+            if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
+            socket.pongTimeout = setTimeout(() => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.close(); 
+              }
+            }, 10000); 
+          }
+        }, 30000); 
+      }, 5000);
     };
 
-    ws.current.onmessage = (msg) => {
+    socket.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
       
+      if (data.msg_type === 'ping') {
+        if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
+        return;
+      }
+      
       if (data.error) {
-        // Ignorar erros de subscription duplicada ou irrelevantes
+        if (socket.authTimeout) clearTimeout(socket.authTimeout);
         const ignoredErrors = ['AlreadySubscribed', 'ForgetInvalid', 'UnrecognizedRequest'];
         
-        // Ignorar RateLimit APENAS se for do ping
         if (data.error.code === 'RateLimit' && data.error.message.includes('ping')) {
           return;
         }
@@ -138,22 +164,20 @@ export default function useDerivBot() {
       }
 
       if (data.msg_type === 'authorize') {
+        if (socket.authTimeout) clearTimeout(socket.authTimeout);
         setAuthorized(true);
         setStatus('Autorizado. Pronto.');
         statsRef.current.balance = data.authorize.balance;
         statsRef.current.currency = data.authorize.currency;
         setStats({ ...statsRef.current });
         
-        // Subscrever a balanço
-        ws.current.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-        // Subscrever a TODAS as transações abertas (evita conflitos de múltiplas assinaturas)
-        ws.current.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+        socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+        socket.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
 
-        // Sistema de Auto-Resume: Se o robô estava ligado e a conexão caiu, ele volta a operar sozinho!
         if (isRunningRef.current) {
           setStatus('Reconectado! Buscando trades...');
-          isTradingRef.current = false; // Garante que não está travado
-          ws.current.send(JSON.stringify({
+          isTradingRef.current = false;
+          socket.send(JSON.stringify({
             ticks: configRef.current.market,
             subscribe: 1
           }));
@@ -170,7 +194,6 @@ export default function useDerivBot() {
       }
 
       if (data.msg_type === 'proposal') {
-        // Se receber uma proposta, e estivermos rodando, podemos comprar
         if (isRunningRef.current && data.proposal.id) {
           buyContract(data.proposal.id);
         }
@@ -178,7 +201,6 @@ export default function useDerivBot() {
 
       if (data.msg_type === 'buy') {
         setStatus('Comprado! Aguardando resultado...');
-        // O resultado será capturado pela subscription global do proposal_open_contract
       }
 
       if (data.msg_type === 'proposal_open_contract') {
@@ -189,13 +211,13 @@ export default function useDerivBot() {
       }
     };
 
-    ws.current.onclose = () => {
-      if (ws.current?.pingInterval) clearInterval(ws.current.pingInterval);
+    socket.onclose = () => {
+      if (socket.pingInterval) clearInterval(socket.pingInterval);
+      if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
+      if (socket.authTimeout) clearTimeout(socket.authTimeout);
       if (isComponentMounted.current) {
         setStatus('Desconectado. Reconectando...');
         setAuthorized(false);
-        // Removido o setIsRunning(false) para manter a memória de que a IA estava ligada
-        // Tentar reconectar após 5 segundos
         setTimeout(() => connect(), 5000);
       }
     };
@@ -205,7 +227,13 @@ export default function useDerivBot() {
     connect();
     return () => {
       isComponentMounted.current = false;
-      if (ws.current) ws.current.close();
+      if (ws.current) {
+        ws.current.onclose = null;
+        if (ws.current.pingInterval) clearInterval(ws.current.pingInterval);
+        if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
+        if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
+        ws.current.close();
+      }
     };
   }, [connect]);
 
