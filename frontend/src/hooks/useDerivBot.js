@@ -49,7 +49,7 @@ export default function useDerivBot() {
     initialStake: 1,
     targetProfit: 10,
     stopLoss: 1000,
-    market: '1HZ100V', // Volatility 100 (1s) Index
+    market: 'R_10', // Volatility 10 Index
     strategy: 'LOW',
     mode: 'preciso', // veloz (1), balanceado (2), preciso (3)
     riskManagement: 'conservador', // conservador, otimizado, agressivo
