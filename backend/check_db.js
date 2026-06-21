@@ -1,11 +1,18 @@
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
-  await supabase.from('operations').delete().eq('user_id', '61a5c940-36b8-4fe6-868f-b3a654e07eba');
-  console.log('Operacoes apagadas para sempre!');
+  const { data, error } = await supabase
+    .from('operations')
+    .select('*')
+    .order('operation_time', { ascending: false })
+    .limit(5);
+    
+  if (error) console.error(error);
+  else console.log(data);
 }
-
 check();

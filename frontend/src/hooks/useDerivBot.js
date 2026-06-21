@@ -447,6 +447,9 @@ export default function useDerivBot() {
 
     if (statsRef.current.cycleProfit >= 0) {
       // Ciclo encerrado com lucro (ou zero). Reseta!
+      if (statsRef.current.cycleProfit > 0 && level > 0) {
+        setStatus('Ciclo finalizado com lucro! Reiniciando...');
+      }
       nextStake = configRef.current.initialStake;
       level = 0;
       statsRef.current.cycleProfit = 0;
@@ -456,25 +459,38 @@ export default function useDerivBot() {
         // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
         statsRef.current.cooldownTicks = 15;
         
-        // Se perdeu, multiplica a aposta se ainda não bateu no limite
+        // Se perdeu, verifica se não bateu no limite do ciclo
         if (level < maxLevel) {
           level += 1;
-          nextStake = nextStake * multiplier;
+          
+          if (rm === 'conservador') {
+            // Ciclo de Recuperação Fracionada: Aposta fixa de recuperação
+            nextStake = configRef.current.initialStake * multiplier;
+          } else {
+            // Martingale Tradicional: Multiplica a aposta anterior
+            nextStake = nextStake * multiplier;
+          }
         } else {
           // Bateu no limite máximo de perdas da estratégia!
           // Aceita a perda do ciclo e volta para a entrada inicial
+          setStatus('Stop de Segurança do Ciclo! Aceitando perda e reiniciando...');
           nextStake = configRef.current.initialStake;
           level = 0;
           statsRef.current.cycleProfit = 0;
         }
       } else {
-        // Se ganhou a operação, encerramos o ciclo do Martingale.
-        // No modo Conservador (2.7x) a recuperação é parcial para proteger a banca.
-        // É mais seguro aceitar o pequeno prejuízo restante e recomeçar do que arriscar uma aposta alta novamente.
-        setStatus(statsRef.current.cycleProfit >= 0 ? 'Ciclo finalizado com lucro! Reiniciando...' : 'Recuperação parcial concluída. Reiniciando por segurança...');
-        level = 0;
-        nextStake = configRef.current.initialStake;
-        statsRef.current.cycleProfit = 0;
+        // GANHOU, mas o ciclo ainda está negativo (cycleProfit < 0)
+        if (rm === 'conservador') {
+          // Recuperação Fracionada: Continua no ciclo até ficar positivo
+          setStatus('Recuperação fracionada: Lucro parcial. Mantendo lote de recuperação...');
+          nextStake = configRef.current.initialStake * multiplier;
+        } else {
+          // Modos Tradicionais: Aceita a recuperação parcial e reinicia por segurança
+          setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
+          level = 0;
+          nextStake = configRef.current.initialStake;
+          statsRef.current.cycleProfit = 0;
+        }
       }
     }
     

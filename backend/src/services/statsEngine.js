@@ -200,58 +200,8 @@ class StatsEngine {
    * Verifica alertas de risco
    */
   async checkRiskAlerts(userId, filters = {}) {
-    const alerts = [];
-    
-    const [bankConfig, riskConfig] = await Promise.all([
-      this._getBankConfig(userId, filters),
-      this._getRiskConfig(userId, filters)
-    ]);
-
-    if (!bankConfig || !riskConfig) return alerts;
-
-    const [todayOps, weekOps, monthOps] = await Promise.all([
-      this._getTodayOperations(userId, filters),
-      this._getWeekOperations(userId, filters),
-      this._getMonthOperations(userId, filters)
-    ]);
-
-    const balance = parseFloat(bankConfig.current_balance) || parseFloat(bankConfig.initial_balance);
-
-    // Calcular P&L de hoje
-    const todayPnL = todayOps.reduce((sum, op) => sum + parseFloat(op.profit_loss), 0);
-    const weekPnL = weekOps.reduce((sum, op) => sum + parseFloat(op.profit_loss), 0);
-    const monthPnL = monthOps.reduce((sum, op) => sum + parseFloat(op.profit_loss), 0);
-
-    const dailyStopLossValue = -(balance * parseFloat(riskConfig.daily_stop_loss_pct)) / 100;
-    const dailyStopGainValue = (balance * parseFloat(riskConfig.daily_stop_gain_pct)) / 100;
-    const weeklyStopLossValue = -(balance * parseFloat(riskConfig.weekly_stop_loss_pct)) / 100;
-    const weeklyStopGainValue = (balance * parseFloat(riskConfig.weekly_stop_gain_pct)) / 100;
-    const monthlyStopLossValue = -(balance * parseFloat(riskConfig.monthly_stop_loss_pct)) / 100;
-    const monthlyStopGainValue = (balance * parseFloat(riskConfig.monthly_stop_gain_pct)) / 100;
-
-    if (todayPnL <= dailyStopLossValue) {
-      alerts.push({ type: 'daily_stop_loss', severity: 'critical', message: `Stop Loss Diário atingido! Perda de ${Math.abs(todayPnL).toFixed(2)}` });
-    }
-    if (todayPnL >= dailyStopGainValue) {
-      alerts.push({ type: 'daily_stop_gain', severity: 'success', message: `Stop Gain Diário atingido! Lucro de ${todayPnL.toFixed(2)}` });
-    }
-    if (todayOps.length >= parseInt(riskConfig.max_daily_operations)) {
-      alerts.push({ type: 'max_operations', severity: 'warning', message: `Limite de ${riskConfig.max_daily_operations} operações diárias atingido!` });
-    }
-    if (weekPnL <= weeklyStopLossValue) {
-      alerts.push({ type: 'weekly_stop_loss', severity: 'critical', message: `Stop Loss Semanal atingido!` });
-    }
-    if (weekPnL >= weeklyStopGainValue) {
-      alerts.push({ type: 'weekly_stop_gain', severity: 'success', message: `Stop Gain Semanal atingido!` });
-    }
-    if (monthPnL <= monthlyStopLossValue) {
-      alerts.push({ type: 'monthly_stop_loss', severity: 'critical', message: `Stop Loss Mensal atingido!` });
-    }
-    if (monthPnL >= monthlyStopGainValue) {
-      alerts.push({ type: 'monthly_stop_gain', severity: 'success', message: `Stop Gain Mensal atingido!` });
-    }
-
-    return alerts;
+    // Alertas de trava de segurança foram removidos a pedido do usuário
+    return [];
   }
 
   /**

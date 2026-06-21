@@ -15,23 +15,19 @@ async function testAuth() {
       profit_table: 1,
       description: 1,
       sort: 'DESC',
-      limit: 10
+      limit: 50
     });
     
     const transactions = response.profit_table.transactions || [];
     console.log(`Found ${transactions.length} trades.`);
-    if (transactions.length > 0) {
-      console.log('--- FIRST TRADE ---');
-      const trade = transactions[0];
-      console.log(trade);
-      
-      console.log('--- FILTER LOGIC ---');
-      console.log('trade.app_id:', trade.app_id);
-      const APP_ID = 1089;
-      
-      const skip = (trade.app_id && Number(trade.app_id) !== APP_ID);
-      console.log('Will skip?', skip);
-    }
+    transactions.forEach(t => {
+      const date = new Date(t.sell_time * 1000);
+      const time = date.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      if (time.startsWith('17:50') || time.startsWith('17:49') || time.startsWith('17:51')) {
+         console.log(`${time} - ${t.contract_id} - ${t.buy_price} -> ${t.sell_price} (App: ${t.app_id})`);
+         console.log(t);
+      }
+    });
   } catch (error) {
     console.error('Erro:', error);
   } finally {

@@ -184,22 +184,10 @@ export default function Admin() {
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-warning)' }}>
             <Shield size={16} /> Gestão de Risco
           </div>
-          <div className="form-grid form-grid-2">
+          <div className="form-grid form-grid-1">
             <div className="form-group">
               <label className="form-label">Risco por Operação (%)</label>
               <input type="number" step="0.1" className="form-input" name="risk_per_operation_pct" value={riskForm.risk_per_operation_pct || ''} onChange={handleRiskChange} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Máx Ops. / Dia</label>
-              <input type="number" className="form-input" name="max_daily_operations" value={riskForm.max_daily_operations || ''} onChange={handleRiskChange} />
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ color: 'var(--color-loss)' }}>Stop Loss Diário (%)</label>
-              <input type="number" step="0.1" className="form-input" name="daily_stop_loss_pct" value={riskForm.daily_stop_loss_pct || ''} onChange={handleRiskChange} />
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ color: 'var(--color-profit)' }}>Stop Gain Diário (%)</label>
-              <input type="number" step="0.1" className="form-input" name="daily_stop_gain_pct" value={riskForm.daily_stop_gain_pct || ''} onChange={handleRiskChange} />
             </div>
           </div>
         </form>
