@@ -440,42 +440,38 @@ export default function useDerivBot() {
     
     const rm = configRef.current.riskManagement;
     const maxLevel = rm === 'conservador' ? 3 : rm === 'otimizado' ? 2 : 1;
-    const multiplier = rm === 'conservador' ? 4.35 : rm === 'otimizado' ? 3.5 : 6;
+    const multiplier = rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 3.5 : 6;
     
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
 
     if (statsRef.current.cycleProfit >= 0) {
       // Ciclo encerrado com lucro (ou zero). Reseta!
-      if (statsRef.current.cycleProfit > 0 && level > 0) {
-        setStatus('Ciclo finalizado com lucro! Reiniciando...');
-      }
       nextStake = configRef.current.initialStake;
       level = 0;
       statsRef.current.cycleProfit = 0;
     } else {
-      // Ciclo ainda está negativo
+      // Está no prejuízo neste ciclo.
       if (!won) {
         // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
         statsRef.current.cooldownTicks = 15;
         
-        // Se perdeu, verifica se não bateu no limite do ciclo
+        // Se perdeu, multiplica a aposta se ainda não bateu no limite
         if (level < maxLevel) {
           level += 1;
-          // Martingale Tradicional Matemático: Multiplica a aposta anterior para recuperação em 1 tiro
           nextStake = nextStake * multiplier;
         } else {
           // Bateu no limite máximo de perdas da estratégia!
           // Aceita a perda do ciclo e volta para a entrada inicial
-          setStatus('Stop de Segurança do Ciclo! Aceitando perda e reiniciando...');
           nextStake = configRef.current.initialStake;
           level = 0;
           statsRef.current.cycleProfit = 0;
         }
       } else {
-        // GANHOU, e por algum motivo o ciclo não somou positivo (arredondamento)
-        // Como o multiplicador agora é 4.35x, uma vitória DEVE encerrar o ciclo.
-        setStatus('Recuperação concluída. Reiniciando...');
+        // Se ganhou a operação, encerramos o ciclo do Martingale.
+        // No modo Conservador (2.7x) a recuperação é parcial para proteger a banca.
+        // É mais seguro aceitar o pequeno prejuízo restante e recomeçar do que arriscar uma aposta alta novamente.
+        setStatus(statsRef.current.cycleProfit >= 0 ? 'Ciclo finalizado com lucro! Reiniciando...' : 'Recuperação parcial concluída. Reiniciando por segurança...');
         level = 0;
         nextStake = configRef.current.initialStake;
         statsRef.current.cycleProfit = 0;
