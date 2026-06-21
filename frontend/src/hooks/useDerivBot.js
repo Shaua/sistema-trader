@@ -440,7 +440,7 @@ export default function useDerivBot() {
     
     const rm = configRef.current.riskManagement;
     const maxLevel = rm === 'conservador' ? 3 : rm === 'otimizado' ? 2 : 1;
-    const multiplier = rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 3.5 : 6;
+    const multiplier = rm === 'conservador' ? 4.35 : rm === 'otimizado' ? 3.5 : 6;
     
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
@@ -462,14 +462,8 @@ export default function useDerivBot() {
         // Se perdeu, verifica se não bateu no limite do ciclo
         if (level < maxLevel) {
           level += 1;
-          
-          if (rm === 'conservador') {
-            // Ciclo de Recuperação Fracionada: Aposta fixa de recuperação
-            nextStake = configRef.current.initialStake * multiplier;
-          } else {
-            // Martingale Tradicional: Multiplica a aposta anterior
-            nextStake = nextStake * multiplier;
-          }
+          // Martingale Tradicional Matemático: Multiplica a aposta anterior para recuperação em 1 tiro
+          nextStake = nextStake * multiplier;
         } else {
           // Bateu no limite máximo de perdas da estratégia!
           // Aceita a perda do ciclo e volta para a entrada inicial
@@ -479,18 +473,12 @@ export default function useDerivBot() {
           statsRef.current.cycleProfit = 0;
         }
       } else {
-        // GANHOU, mas o ciclo ainda está negativo (cycleProfit < 0)
-        if (rm === 'conservador') {
-          // Recuperação Fracionada: Continua no ciclo até ficar positivo
-          setStatus('Recuperação fracionada: Lucro parcial. Mantendo lote de recuperação...');
-          nextStake = configRef.current.initialStake * multiplier;
-        } else {
-          // Modos Tradicionais: Aceita a recuperação parcial e reinicia por segurança
-          setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
-          level = 0;
-          nextStake = configRef.current.initialStake;
-          statsRef.current.cycleProfit = 0;
-        }
+        // GANHOU, e por algum motivo o ciclo não somou positivo (arredondamento)
+        // Como o multiplicador agora é 4.35x, uma vitória DEVE encerrar o ciclo.
+        setStatus('Recuperação concluída. Reiniciando...');
+        level = 0;
+        nextStake = configRef.current.initialStake;
+        statsRef.current.cycleProfit = 0;
       }
     }
     
