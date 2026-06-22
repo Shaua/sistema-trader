@@ -440,7 +440,7 @@ export default function useDerivBot() {
     
     const rm = configRef.current.riskManagement;
     const maxLevel = rm === 'conservador' ? 3 : rm === 'otimizado' ? 2 : 1;
-    const multiplier = rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 3.5 : 6;
+    const multiplier = rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
     
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
