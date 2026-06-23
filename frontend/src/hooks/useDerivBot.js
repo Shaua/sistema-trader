@@ -343,8 +343,11 @@ export default function useDerivBot() {
       const last10 = statsRef.current.recentDigits.slice(-10);
       const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
       
+      // Para modo veloz, permitimos até 2 perdas em 10 ticks para manter a agilidade
+      const allowedMicroLosses = configRef.current.mode === 'veloz' ? 2 : targetLosses;
+
       // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
-      if (highInLast10 > targetLosses) {
+      if (highInLast10 > allowedMicroLosses) {
         statsRef.current.virtualLossCount = 0;
         setStats({ ...statsRef.current });
         if (status !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
@@ -352,7 +355,7 @@ export default function useDerivBot() {
       }
     }
 
-    if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...' || status === 'Micro-Onda detectada. Pausando...') {
+    if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...' || status === 'Micro-Onda detectada. Pausando...' || status === 'Filtro Veloz: Ignorando cluster perigoso...') {
       setStatus('Buscando trades...');
     }
 
@@ -371,18 +374,13 @@ export default function useDerivBot() {
         // --- Filtros Inteligentes Exclusivos para Modo Veloz ---
         if (targetLosses === 1) {
           const recent = statsRef.current.recentDigits;
-          if (recent.length >= 5) {
-            // Analisa os 3 ticks anteriores ao gatilho
-            const last4 = recent.slice(-4);
-            const prev3 = last4.slice(0, 3);
-            const hasHighInPrev3 = prev3.some(d => d >= 6); // Mercado já estava agitado
+          if (recent.length >= 3) {
+            // No modo Veloz, queremos entradas rápidas. 
+            // Vamos bloquear apenas se o tick imediatamente anterior também for um dígito alto (cluster colado)
+            const prevDigit = recent[recent.length - 2];
             
-            // Analisa a temperatura (média dos últimos 5)
-            const last5 = recent.slice(-5);
-            const avg5 = last5.reduce((a, b) => a + b, 0) / 5;
-
-            if (hasHighInPrev3 || avg5 > 5.0) {
-              // Falso gatilho detectado! Aborta entrada para evitar loss
+            if (prevDigit >= 8) {
+              // Falso gatilho detectado! Aborta entrada para evitar loss duplo
               statsRef.current.virtualLossCount = 0;
               setStats({ ...statsRef.current });
               if (status !== 'Filtro Veloz: Ignorando cluster perigoso...') setStatus('Filtro Veloz: Ignorando cluster perigoso...');
