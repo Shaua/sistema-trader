@@ -367,6 +367,30 @@ export default function useDerivBot() {
       setStats({ ...statsRef.current });
       
       if (statsRef.current.virtualLossCount >= targetLosses) {
+        
+        // --- Filtros Inteligentes Exclusivos para Modo Veloz ---
+        if (targetLosses === 1) {
+          const recent = statsRef.current.recentDigits;
+          if (recent.length >= 5) {
+            // Analisa os 3 ticks anteriores ao gatilho
+            const last4 = recent.slice(-4);
+            const prev3 = last4.slice(0, 3);
+            const hasHighInPrev3 = prev3.some(d => d >= 6); // Mercado já estava agitado
+            
+            // Analisa a temperatura (média dos últimos 5)
+            const last5 = recent.slice(-5);
+            const avg5 = last5.reduce((a, b) => a + b, 0) / 5;
+
+            if (hasHighInPrev3 || avg5 > 5.0) {
+              // Falso gatilho detectado! Aborta entrada para evitar loss
+              statsRef.current.virtualLossCount = 0;
+              setStats({ ...statsRef.current });
+              if (status !== 'Filtro Veloz: Ignorando cluster perigoso...') setStatus('Filtro Veloz: Ignorando cluster perigoso...');
+              return;
+            }
+          }
+        }
+
         // Enviar ordem direta de compra (Zero Delay)
         statsRef.current.virtualLossCount = 0; // reset
         setStats({ ...statsRef.current });
@@ -460,8 +484,9 @@ export default function useDerivBot() {
     } else {
       // Está no prejuízo neste ciclo.
       if (!won) {
-        // Se perdeu na entrada real, ativa o Resfriamento maior para fugir da "onda" matinal
-        statsRef.current.cooldownTicks = 25;
+        // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
+        // Modo Veloz usa 8 ticks para manter agilidade, Sniper usa 25 ticks.
+        statsRef.current.cooldownTicks = configRef.current.mode === 'veloz' ? 8 : 25;
         
         // Se perdeu, multiplica a aposta se ainda não bateu no limite
         if (level < maxLevel) {
