@@ -334,11 +334,17 @@ export default function useDerivBot() {
       }
     }
 
+    const targetLosses = configRef.current.mode === 'veloz' ? 1 : 
+                         configRef.current.mode === 'balanceado' ? 2 : 
+                         configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
+
     // 3. Radar de Micro-Ondas (Proteção Curta de 10 ticks)
     if (statsRef.current.recentDigits.length >= 10) {
       const last10 = statsRef.current.recentDigits.slice(-10);
       const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
-      if (highInLast10 >= 3) {
+      
+      // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
+      if (highInLast10 > targetLosses) {
         statsRef.current.virtualLossCount = 0;
         setStats({ ...statsRef.current });
         if (status !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
@@ -360,10 +366,6 @@ export default function useDerivBot() {
       statsRef.current.virtualLossCount += 1;
       setStats({ ...statsRef.current });
       
-      const targetLosses = configRef.current.mode === 'veloz' ? 1 : 
-                           configRef.current.mode === 'balanceado' ? 2 : 
-                           configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
-
       if (statsRef.current.virtualLossCount >= targetLosses) {
         // Enviar ordem direta de compra (Zero Delay)
         statsRef.current.virtualLossCount = 0; // reset
