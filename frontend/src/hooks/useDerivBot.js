@@ -193,11 +193,7 @@ export default function useDerivBot() {
         handleTick(data.tick);
       }
 
-      if (data.msg_type === 'proposal') {
-        if (isRunningRef.current && data.proposal.id) {
-          buyContract(data.proposal.id);
-        }
-      }
+      // Removida escuta de 'proposal' para ganho de velocidade (Compra Direta)
 
       if (data.msg_type === 'buy') {
         setStatus('Comprado! Aguardando resultado...');
@@ -338,7 +334,19 @@ export default function useDerivBot() {
       }
     }
 
-    if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...') {
+    // 3. Radar de Micro-Ondas (Proteção Curta de 10 ticks)
+    if (statsRef.current.recentDigits.length >= 10) {
+      const last10 = statsRef.current.recentDigits.slice(-10);
+      const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
+      if (highInLast10 >= 3) {
+        statsRef.current.virtualLossCount = 0;
+        setStats({ ...statsRef.current });
+        if (status !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
+        return; // Bloqueia entradas
+      }
+    }
+
+    if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...' || status === 'Micro-Onda detectada. Pausando...') {
       setStatus('Buscando trades...');
     }
 
@@ -357,11 +365,11 @@ export default function useDerivBot() {
                            configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
 
       if (statsRef.current.virtualLossCount >= targetLosses) {
-        // Enviar proposta de compra
+        // Enviar ordem direta de compra (Zero Delay)
         statsRef.current.virtualLossCount = 0; // reset
         setStats({ ...statsRef.current });
         
-        requestProposal();
+        buyContractDirect();
       }
     } else {
       // MODO CONSECUTIVO:
@@ -374,19 +382,23 @@ export default function useDerivBot() {
     }
   };
 
-  const requestProposal = () => {
+  const buyContractDirect = () => {
     isTradingRef.current = true; // Trava os ticks para não abrir múltiplas operações
-    setStatus('Analisando entrada...');
+    setStatus('Executando entrada Rápida...');
+    
     ws.current.send(JSON.stringify({
-      proposal: 1,
-      amount: statsRef.current.currentStake,
-      basis: "stake",
-      contract_type: "DIGITUNDER",
-      currency: "USD",
-      duration: 1,
-      duration_unit: "t",
-      symbol: configRef.current.market,
-      barrier: 8
+      buy: "1",
+      price: statsRef.current.currentStake,
+      parameters: {
+        amount: statsRef.current.currentStake,
+        basis: "stake",
+        contract_type: "DIGITUNDER",
+        currency: "USD",
+        duration: 1,
+        duration_unit: "t",
+        symbol: configRef.current.market,
+        barrier: "8"
+      }
     }));
 
     // Sistema de segurança: Se a operação travar por qualquer motivo na Deriv (delay, erro de rede), destrava após 15s
@@ -398,13 +410,6 @@ export default function useDerivBot() {
         }
       }
     }, 15000);
-  };
-
-  const buyContract = (proposalId) => {
-    ws.current.send(JSON.stringify({
-      buy: proposalId,
-      price: statsRef.current.currentStake
-    }));
   };
 
   const handleContractClosed = (contract) => {
@@ -453,8 +458,8 @@ export default function useDerivBot() {
     } else {
       // Está no prejuízo neste ciclo.
       if (!won) {
-        // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
-        statsRef.current.cooldownTicks = 15;
+        // Se perdeu na entrada real, ativa o Resfriamento maior para fugir da "onda" matinal
+        statsRef.current.cooldownTicks = 25;
         
         // Se perdeu, multiplica a aposta se ainda não bateu no limite
         if (level < maxLevel) {
