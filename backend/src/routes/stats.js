@@ -15,6 +15,43 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
     if (!kpis) {
       return res.json({ configured: false, message: 'Configure sua banca primeiro' });
     }
+
+    // Auto-correção do saldo real da Deriv e auto-sync de operações
+    try {
+      const { data: profile } = await supabase.from('user_profiles').select('deriv_token, deriv_demo_token').eq('id', req.userId).single();
+      const token = filters.accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
+      
+      if (token) {
+        const derivApi = require('../services/derivApi');
+        const brokerInfo = await derivApi.getDiagnosticInfo(token);
+        
+        if (brokerInfo.status === 'OK' && brokerInfo.balance !== undefined) {
+          const realBalance = parseFloat(brokerInfo.balance);
+          
+          // Se o saldo calculado estiver diferente do saldo real na Deriv
+          if (Math.abs(kpis.currentBalance - realBalance) > 0.01) {
+            console.log(`[Sync] Corrigindo saldo de ${kpis.currentBalance} para ${realBalance} (${filters.accountType})`);
+            kpis.currentBalance = realBalance;
+            
+            // Ajusta o initial_balance para a matemática bater
+            const correctedInitialBalance = realBalance - kpis.accumulatedProfit - kpis.totalDeposited + kpis.totalWithdrawn;
+            kpis.initialBalance = correctedInitialBalance;
+            
+            // Atualiza no banco de dados
+            await supabase.from('bank_configs').update({ 
+              initial_balance: correctedInitialBalance,
+              current_balance: realBalance
+            }).eq('id', kpis.bankConfig.id);
+          }
+        }
+        
+        // Dispara um auto-sync de operações pendentes em background (não aguardamos terminar para não bloquear)
+        derivApi.syncDerivOperations(token, req.userId, 50, filters.accountType).catch(e => console.error('[AutoSync Error]', e.message));
+      }
+    } catch (e) {
+      console.error('Erro na auto-correção do saldo Deriv:', e.message);
+    }
+
     res.json({ configured: true, ...kpis });
   } catch (err) {
     res.status(500).json({ error: err.message });
