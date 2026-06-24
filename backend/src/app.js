@@ -1,3 +1,4 @@
+require('./utils/logger'); // Start logging immediately
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');

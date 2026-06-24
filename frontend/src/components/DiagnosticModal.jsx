@@ -57,7 +57,7 @@ export default function DiagnosticModal({ isOpen, onClose }) {
             style={{
               position: 'fixed', top: '50%', left: '50%',
               transform: 'translate(-50%, -50%)', zIndex: 1000,
-              width: '90%', maxWidth: '650px',
+              width: '90%', maxWidth: '700px', maxHeight: '90vh',
               backgroundColor: '#0f172a', /* Dark slate background */
               border: '1px solid #1e293b',
               borderRadius: '16px',
@@ -137,6 +137,40 @@ export default function DiagnosticModal({ isOpen, onClose }) {
                       <LogItem icon={<Activity size={14} />} label="SCANNER" status={data.scanner.status} text={data.scanner.details} />
                       <LogItem icon={<Zap size={14} />} label="BROKER" status={data.broker.status} text={data.broker.details} />
                       <LogItem icon={<FileText size={14} />} label="LOGS" status={data.logs.status} text={data.logs.details} isLast />
+                    </div>
+                  </div>
+
+                  {/* Terminal Console */}
+                  <div style={{ marginTop: '24px' }}>
+                    <h4 style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>
+                      Console do Servidor (Últimos Logs)
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#000000', padding: '16px', borderRadius: '8px',
+                      fontFamily: 'monospace', fontSize: '12px', color: '#a3be8c',
+                      height: '180px', overflowY: 'auto', border: '1px solid #1e293b',
+                      display: 'flex', flexDirection: 'column'
+                    }}>
+                      {data.logs.fullLogs && data.logs.fullLogs.length > 0 ? (
+                        data.logs.fullLogs.map((log, index) => {
+                          const isError = log.includes('[ERROR]');
+                          const isWarn = log.includes('[WARN]');
+                          return (
+                            <div key={index} style={{ 
+                              color: isError ? '#ef4444' : isWarn ? '#f59e0b' : '#a3be8c', 
+                              marginBottom: '4px',
+                              lineHeight: '1.4',
+                              wordBreak: 'break-all'
+                            }}>
+                              {log}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div style={{ color: '#64748b', fontStyle: 'italic' }}>
+                          Aguardando eventos do sistema... Nenhum log registrado ainda.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>

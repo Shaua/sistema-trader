@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const supabase = require('../config/supabase');
 const derivApi = require('../services/derivApi');
 const derivRealtime = require('../services/derivRealtime');
+const logger = require('../utils/logger');
 
 // Rota protegida: Salvar os Tokens da Deriv
 router.post('/token', authMiddleware, async (req, res) => {
@@ -124,6 +125,21 @@ router.get('/diagnostic', authMiddleware, async (req, res) => {
       diagnostic.scanner.details = `Thread do scanner operando. Monitorando: ${scannerStatus.details.real ? 'REAL ' : ''}${scannerStatus.details.demo ? 'DEMO' : ''}`;
     } else {
       diagnostic.scanner.details = 'Scanner inativo. Nenhuma conexão em tempo real estabelecida.';
+    }
+
+    // 4. Check Logs
+    const allLogs = logger.getLogs();
+    const recentLogs = allLogs.slice(-100); // Last 100 lines
+    const errorLogs = recentLogs.filter(line => line.includes('[ERROR]'));
+    
+    diagnostic.logs.fullLogs = recentLogs; // Send to frontend
+    
+    if (errorLogs.length > 0) {
+      diagnostic.logs.status = 'ERROR';
+      diagnostic.logs.details = `Foram encontrados ${errorLogs.length} erro(s) recentes no sistema.`;
+    } else {
+      diagnostic.logs.status = 'OK';
+      diagnostic.logs.details = 'Nenhum erro ou alerta recente nos logs.';
     }
 
     res.json(diagnostic);
