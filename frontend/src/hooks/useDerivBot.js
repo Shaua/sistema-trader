@@ -352,7 +352,9 @@ export default function useDerivBot() {
       const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
       
       // Para modo veloz, permitimos até 2 perdas em 10 ticks para manter a agilidade
-      const allowedMicroLosses = configRef.current.mode === 'veloz' ? 2 : targetLosses;
+      // BUGFIX: Se o targetLosses do Martingale for maior que 2 (ex: 3 ou 4), o radar deve permitir que esses
+      // dígitos ruins se formem sem abortar a entrada prematuramente (evitando deadlock infinito).
+      const allowedMicroLosses = configRef.current.mode === 'veloz' ? Math.max(2, targetLosses) : targetLosses;
 
       // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
       if (highInLast10 > allowedMicroLosses) {
