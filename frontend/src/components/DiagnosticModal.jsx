@@ -51,12 +51,11 @@ export default function DiagnosticModal({ isOpen, onClose }) {
             }}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
             style={{
-              position: 'fixed', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)', zIndex: 1000,
+              position: 'fixed', top: '50%', left: '50%', zIndex: 1000,
               width: '90%', maxWidth: '700px', maxHeight: '90vh',
               backgroundColor: '#0f172a', /* Dark slate background */
               border: '1px solid #1e293b',
