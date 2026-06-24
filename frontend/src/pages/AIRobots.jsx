@@ -141,6 +141,7 @@ export default function AIRobots() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><AlertCircle size={16} /> Gerenc. Risco</div>
             <select className="form-input" style={{ width: 150 }} value={config.riskManagement} onChange={(e) => updateConfig('riskManagement', e.target.value)} disabled={isRunning}>
+              <option value="hit_and_run">Hit and Run (2.7x)</option>
               <option value="conservador">Conservador</option>
               <option value="otimizado">Otimizado</option>
               <option value="agressivo">Agressivo</option>

@@ -47,12 +47,12 @@ export default function useDerivBot() {
   // Configuration
   const [config, setConfig] = useState({
     initialStake: 1,
-    targetProfit: 10,
-    stopLoss: 1000,
-    market: 'R_10', // Volatility 10 Index
+    targetProfit: 2.50,
+    stopLoss: 31.00,
+    market: '1HZ100V', // Volatility 100 (1s) Index
     strategy: 'LOW',
     mode: 'preciso', // veloz (1), balanceado (2), preciso (3)
-    riskManagement: 'conservador', // conservador, otimizado, agressivo
+    riskManagement: 'hit_and_run', // conservador, otimizado, agressivo, hit_and_run
   });
 
   // State
@@ -468,8 +468,8 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit += profit;
     
     const rm = configRef.current.riskManagement;
-    const maxLevel = 1; // 1 nível de martingale somente para todos os modos
-    const multiplier = rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
+    const maxLevel = rm === 'hit_and_run' ? 3 : 1; // 3 níveis para Hit and Run, 1 para os demais modos
+    const multiplier = rm === 'hit_and_run' ? 2.7 : rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
     
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
@@ -499,7 +499,7 @@ export default function useDerivBot() {
         }
       } else {
         // Se ganhou a operação, encerramos o ciclo do Martingale.
-        // No modo Conservador (2.7x) a recuperação é parcial para proteger a banca.
+        // No modo Conservador ou Hit and Run (2.7x) a recuperação é parcial para proteger a banca.
         // É mais seguro aceitar o pequeno prejuízo restante e recomeçar do que arriscar uma aposta alta novamente.
         setStatus(statsRef.current.cycleProfit >= 0 ? 'Ciclo finalizado com lucro! Reiniciando...' : 'Recuperação parcial concluída. Reiniciando por segurança...');
         level = 0;
