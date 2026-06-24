@@ -334,9 +334,15 @@ export default function useDerivBot() {
       }
     }
 
-    const targetLosses = configRef.current.mode === 'veloz' ? 1 : 
+    let targetLosses = configRef.current.mode === 'veloz' ? 1 : 
                          configRef.current.mode === 'balanceado' ? 2 : 
                          configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
+
+    // Gatilho Dinâmico de Risco (Smart Recovery)
+    // Se estiver no modo veloz, mas em nível de Martingale (alto risco), exige 2 perdas virtuais
+    if (configRef.current.mode === 'veloz' && statsRef.current.martingaleLevel > 0) {
+      targetLosses = 2;
+    }
 
     // 3. Radar de Micro-Ondas (Proteção Curta de 10 ticks)
     if (statsRef.current.recentDigits.length >= 10) {
@@ -484,7 +490,14 @@ export default function useDerivBot() {
       if (!won) {
         // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
         // Modo Veloz usa 8 ticks para manter agilidade, Sniper usa 25 ticks.
-        statsRef.current.cooldownTicks = configRef.current.mode === 'veloz' ? 8 : 25;
+        let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
+        
+        // Gatilho Dinâmico de Risco: Maior resfriamento se estivermos indo para o Martingale no modo veloz
+        if (configRef.current.mode === 'veloz' && level > 0) {
+          cooldown = 15;
+        }
+        
+        statsRef.current.cooldownTicks = cooldown;
         
         // Se perdeu, multiplica a aposta se ainda não bateu no limite
         if (level < maxLevel) {
