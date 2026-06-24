@@ -77,6 +77,39 @@ export default function AIRobots() {
           MODO DEEP ANALYSIS
         </button>
 
+        {deepAnalysis && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            style={{ 
+              background: '#111827', padding: 12, borderRadius: 8, fontSize: 12, 
+              color: '#34D399', fontFamily: 'monospace', display: 'flex', flexDirection: 'column', gap: 6, 
+              border: '1px solid #065F46' 
+            }}
+          >
+            <div style={{ color: '#F97316', fontWeight: 600, marginBottom: 4 }}>[ TELEMETRIA ATIVA ]</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{color: '#9CA3AF'}}>Gatilho Alvo:</span> 
+              <span>{stats.diagnostic?.targetLosses} perdas</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{color: '#9CA3AF'}}>Contagem Virtual:</span> 
+              <span>{stats.virtualLossCount} perdas</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{color: '#9CA3AF'}}>Radar (10 ticks):</span> 
+              <span>{stats.diagnostic?.highInLast10} ruins</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{color: '#9CA3AF'}}>Resfriamento:</span> 
+              <span>{stats.cooldownTicks > 0 ? `${stats.cooldownTicks}s` : 'Pronto'}</span>
+            </div>
+            <div style={{ color: '#FCD34D', marginTop: 4, borderTop: '1px solid #1F2937', paddingTop: 6, lineHeight: 1.4 }}>
+              &gt; {stats.diagnostic?.radarMessage}
+            </div>
+          </motion.div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}><Activity size={16} /> Quantia inicial</div>

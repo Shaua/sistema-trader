@@ -74,6 +74,11 @@ export default function useDerivBot() {
     lastDigit: null,
     cooldownTicks: 0,
     recentDigits: [],
+    diagnostic: {
+      targetLosses: 1,
+      highInLast10: 0,
+      radarMessage: 'Analisando o mercado...',
+    }
   });
 
   // Logs / Trades
@@ -252,6 +257,11 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit = 0;
     statsRef.current.cooldownTicks = 0;
     statsRef.current.recentDigits = [];
+    statsRef.current.diagnostic = {
+      targetLosses: 1,
+      highInLast10: 0,
+      radarMessage: 'Iniciando telemetria...',
+    };
     
     setStats({ ...statsRef.current });
 
@@ -346,10 +356,13 @@ export default function useDerivBot() {
       else if (statsRef.current.martingaleLevel >= 3) targetLosses = 4; // Para a aposta de $19.68 (Defesa Sniper máxima)
     }
 
+    statsRef.current.diagnostic.targetLosses = targetLosses;
+
     // 3. Radar de Micro-Ondas (Proteção Curta de 10 ticks)
     if (statsRef.current.recentDigits.length >= 10) {
       const last10 = statsRef.current.recentDigits.slice(-10);
       const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
+      statsRef.current.diagnostic.highInLast10 = highInLast10;
       
       // Para modo veloz, permitimos até 2 perdas em 10 ticks para manter a agilidade
       // BUGFIX: Se o targetLosses do Martingale for maior que 2 (ex: 3 ou 4), o radar deve permitir que esses
@@ -359,11 +372,14 @@ export default function useDerivBot() {
       // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
       if (highInLast10 > allowedMicroLosses) {
         statsRef.current.virtualLossCount = 0;
+        statsRef.current.diagnostic.radarMessage = `Micro-Onda bloqueou! Tem ${highInLast10} ruins nos ultimos 10 ticks (limite ${allowedMicroLosses})`;
         setStats({ ...statsRef.current });
         if (status !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
         return; // Bloqueia entradas
       }
     }
+
+    statsRef.current.diagnostic.radarMessage = 'Gráfico limpo. Rastreador ativado.';
 
     if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...' || status === 'Micro-Onda detectada. Pausando...' || status === 'Filtro Veloz: Ignorando cluster perigoso...') {
       setStatus('Buscando trades...');
@@ -392,6 +408,7 @@ export default function useDerivBot() {
             if (prevDigit >= 8) {
               // Falso gatilho detectado! Aborta entrada para evitar loss duplo
               statsRef.current.virtualLossCount = 0;
+              statsRef.current.diagnostic.radarMessage = 'Aviso: Cluster perigoso detectado no tick anterior. Abortando...';
               setStats({ ...statsRef.current });
               if (status !== 'Filtro Veloz: Ignorando cluster perigoso...') setStatus('Filtro Veloz: Ignorando cluster perigoso...');
               return;
