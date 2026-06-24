@@ -78,7 +78,24 @@ function stopRealtimeSync(userId) {
   }
 }
 
+/**
+ * Retorna o status de todas as conexões realtime ativas do usuário
+ */
+function getRealtimeStatus(userId) {
+  const isRealActive = activeConnections.has(`${userId}_REAL`);
+  const isDemoActive = activeConnections.has(`${userId}_DEMO`);
+  
+  return {
+    active: isRealActive || isDemoActive,
+    details: {
+      real: isRealActive,
+      demo: isDemoActive
+    }
+  };
+}
+
 module.exports = {
   startRealtimeSync,
-  stopRealtimeSync
+  stopRealtimeSync,
+  getRealtimeStatus
 };

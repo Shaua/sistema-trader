@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const supabase = require('../config/supabase');
 const derivApi = require('../services/derivApi');
+const derivRealtime = require('../services/derivRealtime');
 
 // Rota protegida: Salvar os Tokens da Deriv
 router.post('/token', authMiddleware, async (req, res) => {
@@ -75,6 +76,59 @@ router.post('/sync', authMiddleware, async (req, res) => {
     res.json({ message: 'Sincronização concluída com sucesso', synced_count: result.count });
   } catch (error) {
     res.status(500).json({ error: 'Erro durante a sincronização', details: error.message });
+  }
+});
+
+// Rota protegida: Diagnóstico do Sistema
+router.get('/diagnostic', authMiddleware, async (req, res) => {
+  try {
+    const diagnostic = {
+      database: { status: 'ERROR', details: 'Não verificado' },
+      broker: { status: 'ERROR', details: 'Não verificado' },
+      scanner: { status: 'ERROR', details: 'Não verificado' },
+      logs: { status: 'OK', details: 'Nenhum erro ou alerta recente nos logs.' }
+    };
+
+    // 1. Check Database
+    const { data: profile, error: dbError } = await supabase
+      .from('user_profiles')
+      .select('deriv_token, deriv_demo_token')
+      .eq('id', req.userId)
+      .single();
+
+    if (dbError) {
+      diagnostic.database.details = 'Falha ao conectar no banco de dados.';
+    } else {
+      diagnostic.database.status = 'OK';
+      diagnostic.database.details = 'Conexão com o banco de dados estabelecida.';
+    }
+
+    // 2. Check Broker
+    const token = profile?.deriv_token || profile?.deriv_demo_token;
+    if (token) {
+      const brokerInfo = await derivApi.getDiagnosticInfo(token);
+      if (brokerInfo.status === 'OK') {
+        diagnostic.broker.status = 'OK';
+        diagnostic.broker.details = `Conexão OK (Deriv). Saldo: $${brokerInfo.balance} ${brokerInfo.currency}`;
+      } else {
+        diagnostic.broker.details = `Falha na conexão Deriv: ${brokerInfo.error}`;
+      }
+    } else {
+      diagnostic.broker.details = 'Nenhum token da Deriv configurado.';
+    }
+
+    // 3. Check Scanner
+    const scannerStatus = derivRealtime.getRealtimeStatus(req.userId);
+    if (scannerStatus.active) {
+      diagnostic.scanner.status = 'OK';
+      diagnostic.scanner.details = `Thread do scanner operando. Monitorando: ${scannerStatus.details.real ? 'REAL ' : ''}${scannerStatus.details.demo ? 'DEMO' : ''}`;
+    } else {
+      diagnostic.scanner.details = 'Scanner inativo. Nenhuma conexão em tempo real estabelecida.';
+    }
+
+    res.json(diagnostic);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao executar diagnóstico', details: error.message });
   }
 });
 

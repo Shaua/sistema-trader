@@ -103,7 +103,36 @@ async function validateToken(token) {
   }
 }
 
+/**
+ * Retorna informações de diagnóstico e saldo da conta
+ */
+async function getDiagnosticInfo(token) {
+  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+  const api = new DerivAPI({ connection });
+
+  try {
+    const auth = await api.authorize(token);
+    
+    // Obter saldo
+    const balanceResponse = await api.balance();
+    const balance = balanceResponse.balance.balance;
+    const currency = balanceResponse.balance.currency;
+
+    return { 
+      status: 'OK',
+      account: auth.authorize.loginid,
+      currency: currency,
+      balance: balance
+    };
+  } catch (error) {
+    return { status: 'ERROR', error: error.message };
+  } finally {
+    connection.close();
+  }
+}
+
 module.exports = {
   syncDerivOperations,
-  validateToken
+  validateToken,
+  getDiagnosticInfo
 };

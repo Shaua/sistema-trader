@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Link2, RefreshCw, AlertCircle, CheckCircle, Key } from 'lucide-react'
+import { Link2, RefreshCw, AlertCircle, CheckCircle, Key, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import api from '../lib/api'
+import DiagnosticModal from '../components/DiagnosticModal'
 
 export default function Integrations() {
   const { profile, updateProfile, loadUserProfile } = useStore()
@@ -15,6 +16,7 @@ export default function Integrations() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false)
   
   useEffect(() => {
     if (profile) {
@@ -65,11 +67,18 @@ export default function Integrations() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 className="page-title">Integração Deriv</h1>
           <p className="page-subtitle">Conecte sua conta para importar operações automaticamente</p>
         </div>
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => setIsDiagnosticOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.2)' }}
+        >
+          <Activity size={18} /> Diagnóstico do Sistema
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24 }}>
@@ -194,6 +203,11 @@ export default function Integrations() {
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
       `}</style>
+      
+      <DiagnosticModal 
+        isOpen={isDiagnosticOpen} 
+        onClose={() => setIsDiagnosticOpen(false)} 
+      />
     </div>
   )
 }
