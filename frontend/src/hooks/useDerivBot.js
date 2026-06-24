@@ -338,10 +338,12 @@ export default function useDerivBot() {
                          configRef.current.mode === 'balanceado' ? 2 : 
                          configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
 
-    // Gatilho Dinâmico de Risco (Smart Recovery)
-    // Se estiver no modo veloz, mas em nível de Martingale (alto risco), exige 2 perdas virtuais
-    if (configRef.current.mode === 'veloz' && statsRef.current.martingaleLevel > 0) {
-      targetLosses = 2;
+    // Gatilho Dinâmico de Risco (Smart Recovery Progressivo)
+    // Se estiver no modo veloz, escala a proteção de acordo com o nível da aposta (Martingale)
+    if (configRef.current.mode === 'veloz') {
+      if (statsRef.current.martingaleLevel === 1) targetLosses = 2; // Para a aposta de $2.70
+      else if (statsRef.current.martingaleLevel === 2) targetLosses = 3; // Para a aposta de $7.29
+      else if (statsRef.current.martingaleLevel >= 3) targetLosses = 4; // Para a aposta de $19.68 (Defesa Sniper máxima)
     }
 
     // 3. Radar de Micro-Ondas (Proteção Curta de 10 ticks)
