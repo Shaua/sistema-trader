@@ -498,13 +498,18 @@ export default function useDerivBot() {
           statsRef.current.cycleProfit = 0;
         }
       } else {
-        // Se ganhou a operação, encerramos o ciclo do Martingale.
-        // No modo Conservador ou Hit and Run (2.7x) a recuperação é parcial para proteger a banca.
-        // É mais seguro aceitar o pequeno prejuízo restante e recomeçar do que arriscar uma aposta alta novamente.
-        setStatus(statsRef.current.cycleProfit >= 0 ? 'Ciclo finalizado com lucro! Reiniciando...' : 'Recuperação parcial concluída. Reiniciando por segurança...');
-        level = 0;
-        nextStake = configRef.current.initialStake;
-        statsRef.current.cycleProfit = 0;
+        // Se ganhou a operação, mas ainda tem prejuízo no ciclo:
+        if (rm === 'hit_and_run') {
+          // Martingale Fracionado: Mantém a stake atual para continuar recuperando!
+          setStatus('Recuperação fracionada. Mantendo valor da aposta...');
+          // Não alteramos o level nem a nextStake (elas continuam as mesmas do último trade)
+        } else {
+          // Outros modos: Recuperação parcial. Aceita o pequeno loss do ciclo e recomeça para proteger a banca.
+          setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
+          level = 0;
+          nextStake = configRef.current.initialStake;
+          statsRef.current.cycleProfit = 0;
+        }
       }
     }
     
