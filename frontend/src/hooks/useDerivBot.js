@@ -44,14 +44,13 @@ export default function useDerivBot() {
   const ws = useRef(null);
   const isComponentMounted = useRef(true);
 
-  // Configuration
   const [config, setConfig] = useState({
-    initialStake: 1,
-    targetProfit: 2.50,
-    stopLoss: 31.00,
+    initialStake: 0.35,
+    targetProfit: 0.33,
+    stopLoss: 11.00,
     market: '1HZ100V', // Volatility 100 (1s) Index
     strategy: 'LOW',
-    mode: 'preciso', // veloz (1), balanceado (2), preciso (3)
+    mode: 'veloz', // veloz (1), balanceado (2), preciso (3)
     riskManagement: 'hit_and_run', // conservador, otimizado, agressivo, hit_and_run
   });
 
