@@ -526,7 +526,20 @@ export default function useDerivBot() {
     }, 15000);
   };
 
+  const processedContractsRef = useRef(new Set());
+
   const handleContractClosed = (contract) => {
+    // Evita processar o mesmo contrato duas vezes (ex: reconexão do websocket envia o último fechado)
+    if (processedContractsRef.current.has(contract.contract_id)) {
+      return;
+    }
+    processedContractsRef.current.add(contract.contract_id);
+    // Limita o tamanho do Set para evitar vazamento de memória
+    if (processedContractsRef.current.size > 100) {
+      const iterator = processedContractsRef.current.values();
+      processedContractsRef.current.delete(iterator.next().value);
+    }
+
     isTradingRef.current = false;
 
     const profit = parseFloat(contract.profit);
@@ -564,7 +577,9 @@ export default function useDerivBot() {
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
 
-    if (statsRef.current.cycleProfit >= 0) {
+    // Resolve o bug de precisão de ponto flutuante do JavaScript (ex: -0.14 + 0.21 = 0.07? Não, -0.35 + 0.21 = -0.14)
+    // Para evitar que um lucro residual quase zero seja tratado como prejuízo, usamos um pequeno epsilon
+    if (statsRef.current.cycleProfit >= -0.01) {
       // Ciclo encerrado com lucro (ou zero). Reseta!
       nextStake = configRef.current.initialStake;
       level = 0;
