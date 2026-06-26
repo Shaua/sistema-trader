@@ -528,7 +528,7 @@ export default function useDerivBot() {
     const newTrade = {
       id: contract.contract_id,
       date: new Date().toISOString(),
-      amount: contract.buy_price,
+      amount: parseFloat(contract.buy_price),
       profit: profit,
       won: won,
       entry: contract.entry_tick_display_value,
