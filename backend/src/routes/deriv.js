@@ -61,6 +61,17 @@ router.post('/token', authMiddleware, async (req, res) => {
       return res.status(500).json({ error: 'Erro ao salvar tokens no banco', details: dbError.message });
     }
 
+    // Reinicia as conexões em tempo real com as novas credenciais
+    derivRealtime.stopRealtimeSync(req.userId + '_REAL');
+    derivRealtime.stopRealtimeSync(req.userId + '_DEMO');
+    
+    if (deriv_token) {
+      derivRealtime.startRealtimeSync(req.userId, deriv_token, 'REAL', deriv_app_id);
+    }
+    if (deriv_demo_token) {
+      derivRealtime.startRealtimeSync(req.userId, deriv_demo_token, 'DEMO', deriv_app_id);
+    }
+
     res.json({ message: 'Tokens salvos com sucesso!' });
   } catch (error) {
     res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
