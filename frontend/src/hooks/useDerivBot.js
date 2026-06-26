@@ -346,7 +346,7 @@ export default function useDerivBot() {
   };
 
   const handleTick = (tickData) => {
-    if (!isRunningRef.current || isTradingRef.current) return;
+    if (!isRunningRef.current) return;
     
     // Sistema Anti-Congelamento (Proteção contra falhas da API da Deriv)
     if (statsRef.current.lastQuote === tickData.quote) {
@@ -375,11 +375,15 @@ export default function useDerivBot() {
 
     statsRef.current.lastDigit = lastDigit;
     
-    // Atualiza Radar de Ondas (últimos 50 ticks)
+    // Atualiza Radar de Ondas (últimos 50 ticks) SEMPRE, mesmo com operação aberta, para não perder o tracking do mercado.
     statsRef.current.recentDigits.push(lastDigit);
     if (statsRef.current.recentDigits.length > 50) {
       statsRef.current.recentDigits.shift();
     }
+
+    // Se houver uma operação em andamento, bloqueia a leitura de novos gatilhos, 
+    // mas o histórico de dígitos continuou sendo perfeitamente alimentado acima.
+    if (isTradingRef.current) return;
     
     // 1. Resfriamento Pós-Loss
     if (statsRef.current.cooldownTicks > 0) {
