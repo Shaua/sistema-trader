@@ -118,14 +118,13 @@ export default function useDerivBot() {
     
     const accountType = activeAccountType || 'REAL';
     const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
-    const appId = profile?.deriv_app_id || 1089;
 
     if (!token) {
       setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
       return;
     }
 
-    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
+    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=1089`;
     const socket = new WebSocket(wsUrl);
     ws.current = socket;
 
