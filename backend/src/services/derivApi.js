@@ -33,7 +33,7 @@ async function syncDerivOperations(token, userId, limit = 500, accountType = 'RE
       console.log(`[DEBUG] Trade ${trade.transaction_id} app_id:`, trade.app_id);
       
       // Como a Deriv pode omitir o app_id, só ignoramos se houver um app_id explicitamente diferente
-      if (trade.app_id && Number(trade.app_id) !== Number(finalAppId)) {
+      if (trade.app_id && String(trade.app_id) !== String(finalAppId)) {
         continue;
       }
 
