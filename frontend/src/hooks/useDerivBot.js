@@ -90,7 +90,6 @@ export default function useDerivBot() {
   const configRef = useRef(config);
   const isRunningRef = useRef(isRunning);
   const isTradingRef = useRef(false);
-  const isNewFlowRef = useRef(false);
   const connectionIdRef = useRef(0);
 
   useEffect(() => {
@@ -126,72 +125,7 @@ export default function useDerivBot() {
       return;
     }
 
-    const isNewFlow = (appId && /[a-zA-Z]/.test(String(appId)));
-    isNewFlowRef.current = isNewFlow;
-    let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
-    let initialBalance = 0;
-    let initialCurrency = 'USD';
-
-    if (isNewFlow) {
-      setStatus('Obtendo chave de acesso segura...');
-      try {
-        const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
-          headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (connectionIdRef.current !== currentConnectionId) return;
-
-        const accounts = accountsRes.data.data;
-        const targetAccountType = accountType === 'DEMO' ? 'demo' : 'real';
-        const targetAccount = accounts.find(a => a.account_type === targetAccountType);
-        
-        if (!targetAccount) {
-          setStatus('Erro: Conta não encontrada para este App ID.');
-          return;
-        }
-
-        // Trick to reliably fetch balance since OTP websocket doesn't emit 'balance' events
-        const fetchBalance = () => new Promise((resolve) => {
-          try {
-            const tempWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-            tempWs.onopen = () => tempWs.send(JSON.stringify({ authorize: token }));
-            tempWs.onmessage = (msg) => {
-              const data = JSON.parse(msg.data);
-              if (data.msg_type === 'authorize') {
-                tempWs.close();
-                resolve({ balance: data.authorize.balance, currency: data.authorize.currency });
-              } else if (data.error) {
-                tempWs.close();
-                resolve(null);
-              }
-            };
-            tempWs.onerror = () => resolve(null);
-            setTimeout(() => { tempWs.close(); resolve(null); }, 5000);
-          } catch (e) {
-            resolve(null);
-          }
-        });
-
-        const balData = await fetchBalance();
-        initialBalance = balData ? balData.balance : (targetAccount.balance || 0);
-        initialCurrency = balData ? balData.currency : (targetAccount.currency || 'USD');
-
-        const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
-          headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (connectionIdRef.current !== currentConnectionId) return;
-        
-        wsUrl = otpRes.data.data.url;
-      } catch (err) {
-        if (connectionIdRef.current !== currentConnectionId) return;
-        setStatus(`Erro de conexão API Deriv: ${err.message}`);
-        return;
-      }
-    }
-
-    if (connectionIdRef.current !== currentConnectionId) return;
-
+    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
     const socket = new WebSocket(wsUrl);
     ws.current = socket;
 
@@ -218,13 +152,7 @@ export default function useDerivBot() {
     
     socket.onopen = () => {
       setStatus('Conectado. Autorizando...');
-      
-      if (!isNewFlow) {
-        socket.send(JSON.stringify({ authorize: token }));
-      } else {
-        // No fluxo novo (OTP), a conexão já abre autenticada
-        onAuthSuccess(initialBalance, initialCurrency);
-      }
+      socket.send(JSON.stringify({ authorize: token }));
       
       socket.authTimeout = setTimeout(() => {
         if (socket.readyState === WebSocket.OPEN && !authorized) {
@@ -534,14 +462,9 @@ export default function useDerivBot() {
       currency: "USD",
       duration: 1,
       duration_unit: "t",
-      barrier: "8"
+      barrier: "8",
+      symbol: configRef.current.market
     };
-
-    if (isNewFlowRef.current) {
-      params.underlying_symbol = configRef.current.market;
-    } else {
-      params.symbol = configRef.current.market;
-    }
 
     ws.current.send(JSON.stringify({
       buy: "1",
