@@ -126,6 +126,8 @@ export default function useDerivBot() {
     const isNewFlow = (appId && /[a-zA-Z]/.test(String(appId)));
     isNewFlowRef.current = isNewFlow;
     let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
+    let initialBalance = 0;
+    let initialCurrency = 'USD';
 
     if (isNewFlow) {
       setStatus('Obtendo chave de acesso segura...');
@@ -145,6 +147,9 @@ export default function useDerivBot() {
           setStatus('Erro: Conta não encontrada para este App ID.');
           return;
         }
+
+        initialBalance = targetAccount.balance || 0;
+        initialCurrency = targetAccount.currency || 'USD';
 
         const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
           headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
@@ -193,7 +198,7 @@ export default function useDerivBot() {
         socket.send(JSON.stringify({ authorize: token }));
       } else {
         // No fluxo novo (OTP), a conexão já abre autenticada
-        onAuthSuccess();
+        onAuthSuccess(initialBalance, initialCurrency);
       }
       
       socket.authTimeout = setTimeout(() => {
@@ -550,6 +555,7 @@ export default function useDerivBot() {
     const won = profit > 0;
     
     statsRef.current.profit += profit;
+    statsRef.current.balance += profit;
     if (won) statsRef.current.wins += 1;
     else statsRef.current.losses += 1;
 
