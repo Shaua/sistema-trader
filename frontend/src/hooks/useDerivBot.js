@@ -94,7 +94,7 @@ export default function useDerivBot() {
     isRunningRef.current = isRunning;
   }, [config, isRunning]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (ws.current) {
       ws.current.onclose = null;
       ws.current.onerror = null;
@@ -107,26 +107,86 @@ export default function useDerivBot() {
     }
     
     setStatus('Conectando...');
-    const socket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+    
+    const accountType = useStore.getState().activeAccountType || 'REAL';
+    const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
+    const appId = profile?.deriv_app_id || 1089;
+
+    if (!token) {
+      setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
+      return;
+    }
+
+    const isNewFlow = (appId && /[a-zA-Z]/.test(String(appId)));
+    let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
+
+    if (isNewFlow) {
+      setStatus('Obtendo chave de acesso segura...');
+      try {
+        const { default: axios } = await import('axios');
+        const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
+          headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+        });
+        
+        const accounts = accountsRes.data.data;
+        const targetAccountType = accountType === 'DEMO' ? 'demo' : 'real';
+        const targetAccount = accounts.find(a => a.account_type === targetAccountType);
+        
+        if (!targetAccount) {
+          setStatus('Erro: Conta não encontrada para este App ID.');
+          return;
+        }
+
+        const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
+          headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+        });
+        
+        wsUrl = otpRes.data.data.url;
+      } catch (err) {
+        setStatus(`Erro de conexão API Deriv: ${err.message}`);
+        return;
+      }
+    }
+
+    const socket = new WebSocket(wsUrl);
     ws.current = socket;
+
+    const onAuthSuccess = (balance = 0, currency = 'USD') => {
+      if (socket.authTimeout) clearTimeout(socket.authTimeout);
+      setAuthorized(true);
+      setStatus('Autorizado. Pronto.');
+      statsRef.current.balance = balance;
+      statsRef.current.currency = currency;
+      setStats({ ...statsRef.current });
+      
+      socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+      socket.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
+
+      if (isRunningRef.current) {
+        setStatus('Reconectado! Buscando trades...');
+        isTradingRef.current = false;
+        socket.send(JSON.stringify({
+          ticks: configRef.current.market,
+          subscribe: 1
+        }));
+      }
+    };
     
     socket.onopen = () => {
-      setStatus('Autorizando...');
+      setStatus('Conectado. Autorizando...');
       
-      const accountType = useStore.getState().activeAccountType || 'REAL';
-      const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
-
-      if (token) {
+      if (!isNewFlow) {
         socket.send(JSON.stringify({ authorize: token }));
-        
-        socket.authTimeout = setTimeout(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.close();
-          }
-        }, 15000);
       } else {
-        setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
+        // No fluxo novo (OTP), a conexão já abre autenticada
+        onAuthSuccess();
       }
+      
+      socket.authTimeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.OPEN && !authorized) {
+          socket.close();
+        }
+      }, 15000);
       
       setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN) return;
@@ -168,24 +228,7 @@ export default function useDerivBot() {
       }
 
       if (data.msg_type === 'authorize') {
-        if (socket.authTimeout) clearTimeout(socket.authTimeout);
-        setAuthorized(true);
-        setStatus('Autorizado. Pronto.');
-        statsRef.current.balance = data.authorize.balance;
-        statsRef.current.currency = data.authorize.currency;
-        setStats({ ...statsRef.current });
-        
-        socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-        socket.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
-
-        if (isRunningRef.current) {
-          setStatus('Reconectado! Buscando trades...');
-          isTradingRef.current = false;
-          socket.send(JSON.stringify({
-            ticks: configRef.current.market,
-            subscribe: 1
-          }));
-        }
+        onAuthSuccess(data.authorize.balance, data.authorize.currency);
       }
 
       if (data.msg_type === 'balance') {
