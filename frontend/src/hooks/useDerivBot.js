@@ -89,6 +89,7 @@ export default function useDerivBot() {
   const isRunningRef = useRef(isRunning);
   const isTradingRef = useRef(false);
   const isNewFlowRef = useRef(false);
+  const connectionIdRef = useRef(0);
 
   useEffect(() => {
     configRef.current = config;
@@ -96,6 +97,9 @@ export default function useDerivBot() {
   }, [config, isRunning]);
 
   const connect = useCallback(async () => {
+    const currentConnectionId = Date.now() + Math.random();
+    connectionIdRef.current = currentConnectionId;
+
     if (ws.current) {
       ws.current.onclose = null;
       ws.current.onerror = null;
@@ -105,6 +109,7 @@ export default function useDerivBot() {
       if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
       if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
       ws.current.close();
+      ws.current = null;
     }
     
     setStatus('Conectando...');
@@ -130,6 +135,8 @@ export default function useDerivBot() {
           headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
         });
         
+        if (connectionIdRef.current !== currentConnectionId) return;
+
         const accounts = accountsRes.data.data;
         const targetAccountType = accountType === 'DEMO' ? 'demo' : 'real';
         const targetAccount = accounts.find(a => a.account_type === targetAccountType);
@@ -143,12 +150,17 @@ export default function useDerivBot() {
           headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
         });
         
+        if (connectionIdRef.current !== currentConnectionId) return;
+        
         wsUrl = otpRes.data.data.url;
       } catch (err) {
+        if (connectionIdRef.current !== currentConnectionId) return;
         setStatus(`Erro de conexão API Deriv: ${err.message}`);
         return;
       }
     }
+
+    if (connectionIdRef.current !== currentConnectionId) return;
 
     const socket = new WebSocket(wsUrl);
     ws.current = socket;
