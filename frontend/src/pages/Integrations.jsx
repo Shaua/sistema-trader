@@ -9,7 +9,8 @@ export default function Integrations() {
   const { profile, updateProfile, loadUserProfile } = useStore()
   const [tokens, setTokens] = useState({
     deriv_token: '',
-    deriv_demo_token: ''
+    deriv_demo_token: '',
+    deriv_app_id: ''
   })
   const [status, setStatus] = useState('disconnected') // 'disconnected', 'validating', 'connected'
   const [syncing, setSyncing] = useState(false)
@@ -22,7 +23,8 @@ export default function Integrations() {
     if (profile) {
       setTokens({
         deriv_token: profile.deriv_token || '',
-        deriv_demo_token: profile.deriv_demo_token || ''
+        deriv_demo_token: profile.deriv_demo_token || '',
+        deriv_app_id: profile.deriv_app_id || ''
       })
       if (profile.deriv_token) setStatus('connected')
     }
@@ -38,7 +40,8 @@ export default function Integrations() {
       await api.post('/deriv/token', tokens)
       updateProfile({ 
         deriv_token: tokens.deriv_token, 
-        deriv_demo_token: tokens.deriv_demo_token 
+        deriv_demo_token: tokens.deriv_demo_token,
+        deriv_app_id: tokens.deriv_app_id
       })
       setStatus('connected')
       setSuccessMsg('Tokens salvos com sucesso!')
@@ -96,12 +99,28 @@ export default function Integrations() {
           <form onSubmit={handleSave}>
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Key size={14} /> Seu App ID (Opcional para contas antigas)
+              </label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Ex: 12345"
+                value={tokens.deriv_app_id}
+                onChange={(e) => setTokens({...tokens, deriv_app_id: e.target.value})}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Necessário se você usa os novos tokens longos (pat_...). Crie seu app em <a href="https://developers.deriv.com/" target="_blank" rel="noreferrer" style={{color: 'var(--color-accent)'}}>developers.deriv.com</a> para obter seu App ID.
+              </p>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Key size={14} /> Token API - Conta Real
               </label>
               <input 
                 type="password" 
                 className="form-input" 
-                placeholder="Ex: aB1cD2eF3gH4iJ5"
+                placeholder="Ex: pat_aB1cD2eF3gH4iJ5..."
                 value={tokens.deriv_token}
                 onChange={(e) => setTokens({...tokens, deriv_token: e.target.value})}
               />
@@ -114,12 +133,12 @@ export default function Integrations() {
               <input 
                 type="password" 
                 className="form-input" 
-                placeholder="Ex: aB1cD2eF3gH4iJ5"
+                placeholder="Ex: pat_aB1cD2eF3gH4iJ5..."
                 value={tokens.deriv_demo_token}
                 onChange={(e) => setTokens({...tokens, deriv_demo_token: e.target.value})}
               />
               <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
-                Você pode gerar seus tokens no painel da Deriv em "Manage Account Settings" {'>'} "API Token". Marque as permissões de Read e Trade.
+                Marque sempre as permissões de <strong>Read</strong> e <strong>Trade</strong> ao criar seu token no portal de desenvolvedores.
               </p>
             </div>
 

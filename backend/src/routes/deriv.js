@@ -9,11 +9,27 @@ const logger = require('../utils/logger');
 // Rota protegida: Salvar os Tokens da Deriv
 router.post('/token', authMiddleware, async (req, res) => {
   try {
-    const { deriv_token, deriv_demo_token } = req.body;
+    let { deriv_token, deriv_demo_token, deriv_app_id } = req.body;
+    
+    // Intercepta se o usuário colou um PAT token no campo da conta real ou demo
+    if ((deriv_token && deriv_token.startsWith('pat_')) || (deriv_demo_token && deriv_demo_token.startsWith('pat_'))) {
+      const patToken = deriv_token?.startsWith('pat_') ? deriv_token : deriv_demo_token;
+      console.log(`[Deriv Route] PAT Token detectado. Extraindo tokens específicos...`);
+      
+      const extraction = await derivApi.extractTokensFromPAT(patToken, deriv_app_id);
+      
+      if (!extraction.success) {
+        return res.status(400).json({ error: 'Falha ao extrair contas do PAT Token: ' + extraction.error });
+      }
+      
+      // Substitui os tokens PAT pelos tokens clássicos de cada conta
+      if (extraction.realToken) deriv_token = extraction.realToken;
+      if (extraction.demoToken) deriv_demo_token = extraction.demoToken;
+    }
     
     // Validate Real Token
     if (deriv_token) {
-      const validation = await derivApi.validateToken(deriv_token);
+      const validation = await derivApi.validateToken(deriv_token, deriv_app_id);
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Real inválido: ' + validation.error });
       }
@@ -24,7 +40,7 @@ router.post('/token', authMiddleware, async (req, res) => {
 
     // Validate Demo Token
     if (deriv_demo_token) {
-      const validation = await derivApi.validateToken(deriv_demo_token);
+      const validation = await derivApi.validateToken(deriv_demo_token, deriv_app_id);
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Demo inválido: ' + validation.error });
       }
@@ -36,7 +52,7 @@ router.post('/token', authMiddleware, async (req, res) => {
     // Atualiza o perfil do usuário no Supabase
     const { error: dbError } = await supabase
       .from('user_profiles')
-      .update({ deriv_token, deriv_demo_token })
+      .update({ deriv_token, deriv_demo_token, deriv_app_id })
       .eq('id', req.userId);
 
     if (dbError) {
@@ -57,7 +73,7 @@ router.post('/sync', authMiddleware, async (req, res) => {
     // 1. Busca o token do usuário no banco
     const { data: profile, error } = await supabase
       .from('user_profiles')
-      .select('deriv_token, deriv_demo_token')
+      .select('deriv_token, deriv_demo_token, deriv_app_id')
       .eq('id', req.userId)
       .single();
 
@@ -72,7 +88,7 @@ router.post('/sync', authMiddleware, async (req, res) => {
     }
 
     // 2. Executa a sincronização chamando a API da Deriv
-    const result = await derivApi.syncDerivOperations(tokenToUse, req.userId, 500, accountType);
+    const result = await derivApi.syncDerivOperations(tokenToUse, req.userId, 500, accountType, profile.deriv_app_id);
 
     res.json({ message: 'Sincronização concluída com sucesso', synced_count: result.count });
   } catch (error) {
@@ -93,7 +109,7 @@ router.get('/diagnostic', authMiddleware, async (req, res) => {
     // 1. Check Database
     const { data: profile, error: dbError } = await supabase
       .from('user_profiles')
-      .select('deriv_token, deriv_demo_token')
+      .select('deriv_token, deriv_demo_token, deriv_app_id')
       .eq('id', req.userId)
       .single();
 
@@ -107,7 +123,7 @@ router.get('/diagnostic', authMiddleware, async (req, res) => {
     // 2. Check Broker
     const token = profile?.deriv_token || profile?.deriv_demo_token;
     if (token) {
-      const brokerInfo = await derivApi.getDiagnosticInfo(token);
+      const brokerInfo = await derivApi.getDiagnosticInfo(token, profile?.deriv_app_id);
       if (brokerInfo.status === 'OK') {
         diagnostic.broker.status = 'OK';
         diagnostic.broker.details = `Conexão OK (Deriv). Saldo: $${brokerInfo.balance} ${brokerInfo.currency}`;

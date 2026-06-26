@@ -6,7 +6,8 @@ const activeConnections = new Map();
 /**
  * Inicia a conexão em tempo real com a Deriv para um usuário.
  */
-function startRealtimeSync(userId, token, accountType = 'REAL') {
+function startRealtimeSync(userId, token, accountType = 'REAL', appId = null) {
+  const finalAppId = appId || 1089;
   const connectionKey = `${userId}_${accountType}`;
   if (activeConnections.has(connectionKey)) {
     console.log(`[Realtime] Conexão já ativa para o usuário ${userId} (${accountType})`);
@@ -14,7 +15,7 @@ function startRealtimeSync(userId, token, accountType = 'REAL') {
   }
 
   console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType})...`);
-  const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+  const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`);
   
   ws.on('open', () => {
     // 1. Autenticar
@@ -41,7 +42,7 @@ function startRealtimeSync(userId, token, accountType = 'REAL') {
          console.log(`[Realtime] Nova operação fechada detectada para ${userId} (${accountType})! Sincronizando...`);
          try {
            // Sincroniza apenas as últimas 5 operações para ser super rápido e atualizar o banco
-           await syncDerivOperations(token, userId, 5, accountType);
+           await syncDerivOperations(token, userId, 5, accountType, appId);
            console.log(`[Realtime] Sincronização rápida concluída para ${userId} (${accountType}).`);
          } catch (err) {
            console.error(`[Realtime] Erro ao sincronizar rápida:`, err.message);
@@ -54,7 +55,7 @@ function startRealtimeSync(userId, token, accountType = 'REAL') {
     console.log(`[Realtime] Conexão fechada para ${userId} (${accountType}). Tentando reconectar em 10s...`);
     activeConnections.delete(connectionKey);
     setTimeout(() => {
-      startRealtimeSync(userId, token, accountType);
+      startRealtimeSync(userId, token, accountType, appId);
     }, 10000);
   });
   

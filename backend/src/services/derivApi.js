@@ -2,13 +2,14 @@ const WebSocket = require('ws');
 const DerivAPI = require('@deriv/deriv-api/dist/DerivAPIBasic');
 const supabase = require('../config/supabase');
 
-const APP_ID = 1089; // Default testing App ID
+const DEFAULT_APP_ID = 1089; // Default testing App ID
 
 /**
  * Conecta na Deriv e busca as últimas operações
  */
-async function syncDerivOperations(token, userId, limit = 500, accountType = 'REAL') {
-  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+async function syncDerivOperations(token, userId, limit = 500, accountType = 'REAL', appId = null) {
+  const finalAppId = appId || DEFAULT_APP_ID;
+  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`);
   const api = new DerivAPI({ connection });
 
   try {
@@ -31,9 +32,8 @@ async function syncDerivOperations(token, userId, limit = 500, accountType = 'RE
     for (const trade of transactions) {
       console.log(`[DEBUG] Trade ${trade.transaction_id} app_id:`, trade.app_id);
       
-      // Filtra para salvar APENAS as operações feitas pelo nosso robô (App ID 1089)
       // Como a Deriv pode omitir o app_id, só ignoramos se houver um app_id explicitamente diferente
-      if (trade.app_id && Number(trade.app_id) !== APP_ID) {
+      if (trade.app_id && Number(trade.app_id) !== Number(finalAppId)) {
         continue;
       }
 
@@ -89,13 +89,19 @@ async function syncDerivOperations(token, userId, limit = 500, accountType = 'RE
 /**
  * Valida o token testando a conexão
  */
-async function validateToken(token) {
-  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+async function validateToken(token, appId = null) {
+  const finalAppId = appId || DEFAULT_APP_ID;
+  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`);
   const api = new DerivAPI({ connection });
 
   try {
     const auth = await api.authorize(token);
-    return { valid: true, account: auth.authorize.loginid, currency: auth.authorize.currency };
+    return { 
+      valid: true, 
+      account: auth.authorize.loginid, 
+      currency: auth.authorize.currency,
+      account_list: auth.authorize.account_list // Retorna a lista de contas também
+    };
   } catch (error) {
     return { valid: false, error: error.message };
   } finally {
@@ -104,10 +110,34 @@ async function validateToken(token) {
 }
 
 /**
+ * Extrai os tokens clássicos (Real e Demo) a partir de um PAT Token
+ */
+async function extractTokensFromPAT(patToken, appId = null) {
+  const validation = await validateToken(patToken, appId);
+  if (!validation.valid || !validation.account_list) {
+    return { success: false, error: validation.error || 'Não foi possível ler a lista de contas.' };
+  }
+
+  const accountList = validation.account_list;
+  
+  // Real token: Não é virtual e é conta de trading
+  const realAccount = accountList.find(a => a.is_virtual === 0 && a.account_category === 'trading');
+  // Demo token: É virtual
+  const demoAccount = accountList.find(a => a.is_virtual === 1);
+
+  return {
+    success: true,
+    realToken: realAccount ? realAccount.token : null,
+    demoToken: demoAccount ? demoAccount.token : null
+  };
+}
+
+/**
  * Retorna informações de diagnóstico e saldo da conta
  */
-async function getDiagnosticInfo(token) {
-  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+async function getDiagnosticInfo(token, appId = null) {
+  const finalAppId = appId || DEFAULT_APP_ID;
+  const connection = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`);
   const api = new DerivAPI({ connection });
 
   try {
@@ -134,5 +164,6 @@ async function getDiagnosticInfo(token) {
 module.exports = {
   syncDerivOperations,
   validateToken,
-  getDiagnosticInfo
+  getDiagnosticInfo,
+  extractTokensFromPAT
 };
