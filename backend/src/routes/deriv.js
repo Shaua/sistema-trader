@@ -11,6 +11,8 @@ router.post('/token', authMiddleware, async (req, res) => {
   try {
     let { deriv_token, deriv_demo_token, deriv_app_id } = req.body;
     
+    const isNewFlow = (deriv_app_id && /[a-zA-Z]/.test(String(deriv_app_id)));
+
     // Intercepta se o usuário colou um PAT token no campo da conta real ou demo
     if ((deriv_token && deriv_token.startsWith('pat_')) || (deriv_demo_token && deriv_demo_token.startsWith('pat_'))) {
       const patToken = deriv_token?.startsWith('pat_') ? deriv_token : deriv_demo_token;
@@ -33,7 +35,7 @@ router.post('/token', authMiddleware, async (req, res) => {
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Real inválido: ' + validation.error });
       }
-      if (validation.account.startsWith('VRTC') || validation.account.startsWith('DOT')) {
+      if (!isNewFlow && (validation.account.startsWith('VRTC') || validation.account.startsWith('DOT'))) {
         return res.status(400).json({ error: 'Token Real não pode ser uma conta virtual (VRTC/DOT).' });
       }
     }
@@ -44,7 +46,7 @@ router.post('/token', authMiddleware, async (req, res) => {
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Demo inválido: ' + validation.error });
       }
-      if (!validation.account.startsWith('VRTC') && !validation.account.startsWith('DOT')) {
+      if (!isNewFlow && !validation.account.startsWith('VRTC') && !validation.account.startsWith('DOT')) {
         return res.status(400).json({ error: 'Token Demo deve ser uma conta virtual (VRTC/DOT).' });
       }
     }
