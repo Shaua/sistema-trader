@@ -33,8 +33,8 @@ router.post('/token', authMiddleware, async (req, res) => {
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Real inválido: ' + validation.error });
       }
-      if (validation.account.startsWith('VRTC')) {
-        return res.status(400).json({ error: 'Token Real não pode ser uma conta virtual (VRTC).' });
+      if (validation.account.startsWith('VRTC') || validation.account.startsWith('DOT')) {
+        return res.status(400).json({ error: 'Token Real não pode ser uma conta virtual (VRTC/DOT).' });
       }
     }
 
@@ -44,8 +44,8 @@ router.post('/token', authMiddleware, async (req, res) => {
       if (!validation.valid) {
         return res.status(400).json({ error: 'Token Demo inválido: ' + validation.error });
       }
-      if (!validation.account.startsWith('VRTC')) {
-        return res.status(400).json({ error: 'Token Demo deve ser uma conta virtual (VRTC).' });
+      if (!validation.account.startsWith('VRTC') && !validation.account.startsWith('DOT')) {
+        return res.status(400).json({ error: 'Token Demo deve ser uma conta virtual (VRTC/DOT).' });
       }
     }
 
