@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import api from '../lib/api';
 import axios from 'axios';
 
 const APP_ID = 1089;
@@ -90,6 +91,7 @@ export default function useDerivBot() {
   const configRef = useRef(config);
   const isRunningRef = useRef(isRunning);
   const isTradingRef = useRef(false);
+  const isNewFlowRef = useRef(false);
   const connectionIdRef = useRef(0);
 
   useEffect(() => {
@@ -118,13 +120,36 @@ export default function useDerivBot() {
     
     const accountType = activeAccountType || 'REAL';
     const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
+    const appId = profile?.deriv_app_id || 1089;
 
     if (!token) {
       setStatus(`Token da conta ${accountType} não encontrado. Cadastre em Integrações.`);
       return;
     }
 
-    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=1089`;
+    setStatus('Obtendo chave de acesso segura (Backend)...');
+    
+    let wsUrl = '';
+    let initialBalance = 0;
+    let initialCurrency = 'USD';
+    let isNewFlow = false;
+
+    try {
+      const { data } = await api.get('/deriv/connection-info', {
+        headers: { 'x-account-type': accountType }
+      });
+      wsUrl = data.wsUrl;
+      isNewFlow = data.isNewFlow;
+      initialBalance = data.balance || 0;
+      initialCurrency = data.currency || 'USD';
+    } catch (err) {
+      if (connectionIdRef.current !== currentConnectionId) return;
+      setStatus(`Erro de conexão: ${err.response?.data?.details || err.message}`);
+      return;
+    }
+    
+    if (connectionIdRef.current !== currentConnectionId) return;
+
     const socket = new WebSocket(wsUrl);
     ws.current = socket;
 
@@ -151,7 +176,13 @@ export default function useDerivBot() {
     
     socket.onopen = () => {
       setStatus('Conectado. Autorizando...');
-      socket.send(JSON.stringify({ authorize: token }));
+      
+      if (!isNewFlow) {
+        socket.send(JSON.stringify({ authorize: token }));
+      } else {
+        // No fluxo novo (OTP), a conexão já abre autenticada
+        onAuthSuccess(initialBalance, initialCurrency);
+      }
       
       socket.authTimeout = setTimeout(() => {
         if (socket.readyState === WebSocket.OPEN && !authorized) {
@@ -461,9 +492,14 @@ export default function useDerivBot() {
       currency: "USD",
       duration: 1,
       duration_unit: "t",
-      barrier: "8",
-      symbol: configRef.current.market
+      barrier: "8"
     };
+
+    if (isNewFlowRef.current) {
+      params.underlying_symbol = configRef.current.market;
+    } else {
+      params.symbol = configRef.current.market;
+    }
 
     ws.current.send(JSON.stringify({
       buy: "1",

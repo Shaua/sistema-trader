@@ -177,4 +177,60 @@ router.get('/diagnostic', authMiddleware, async (req, res) => {
   }
 });
 
+// Rota protegida: Obter URL OTP e Saldo (para contornar CORS no Frontend)
+router.get('/connection-info', authMiddleware, async (req, res) => {
+  try {
+    const accountType = req.headers['x-account-type'] || 'REAL';
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('deriv_token, deriv_demo_token, deriv_app_id')
+      .eq('id', req.userId)
+      .single();
+
+    if (error || !profile) {
+      return res.status(400).json({ error: 'Perfil não encontrado.' });
+    }
+
+    const token = accountType === 'DEMO' ? profile.deriv_demo_token : profile.deriv_token;
+    const appId = profile.deriv_app_id || 1089;
+
+    if (!token) {
+      return res.status(400).json({ error: `Nenhum token da Deriv encontrado para a conta ${accountType}.` });
+    }
+
+    const isNewFlow = (appId && /[a-zA-Z]/.test(String(appId)));
+    
+    if (!isNewFlow) {
+      return res.json({ wsUrl: `wss://ws.derivws.com/websockets/v3?app_id=${appId}`, isNewFlow: false });
+    }
+
+    const axios = require('axios');
+    const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
+      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+    });
+    
+    const accounts = accountsRes.data.data;
+    const targetAccountType = accountType === 'DEMO' ? 'demo' : 'real';
+    const targetAccount = accounts.find(a => a.account_type === targetAccountType);
+    
+    if (!targetAccount) {
+      return res.status(400).json({ error: 'Conta não encontrada para este App ID.' });
+    }
+
+    const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
+      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+    });
+
+    res.json({ 
+      wsUrl: otpRes.data.data.url, 
+      isNewFlow: true,
+      balance: targetAccount.balance || 0,
+      currency: targetAccount.currency || 'USD'
+    });
+  } catch (error) {
+    const errorMsg = error.response?.data?.error?.message || error.message;
+    res.status(500).json({ error: 'Erro de conexão Deriv', details: errorMsg });
+  }
+});
+
 module.exports = router;
