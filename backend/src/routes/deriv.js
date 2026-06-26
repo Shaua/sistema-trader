@@ -219,15 +219,12 @@ router.get('/connection-info', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Conta não encontrada para este App ID.' });
     }
 
-    // Sort by balance to pick the account that actually has funds, prioritizing 'CR' (standard fiat options account)
+    // Priority: 'CR' prefix (standard fiat options account)
     let targetAccount = matchingAccounts[0];
     if (targetAccountType === 'real') {
-      const crAccount = matchingAccounts.find(a => a.account_id.startsWith('CR') && a.balance > 0);
+      const crAccount = matchingAccounts.find(a => a.account_id && a.account_id.startsWith('CR'));
       if (crAccount) {
         targetAccount = crAccount;
-      } else {
-        // Fallback to highest balance
-        targetAccount = matchingAccounts.sort((a, b) => (b.balance || 0) - (a.balance || 0))[0];
       }
     }
 
