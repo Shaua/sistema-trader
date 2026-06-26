@@ -148,8 +148,31 @@ export default function useDerivBot() {
           return;
         }
 
-        initialBalance = targetAccount.balance || 0;
-        initialCurrency = targetAccount.currency || 'USD';
+        // Trick to reliably fetch balance since OTP websocket doesn't emit 'balance' events
+        const fetchBalance = () => new Promise((resolve) => {
+          try {
+            const tempWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+            tempWs.onopen = () => tempWs.send(JSON.stringify({ authorize: token }));
+            tempWs.onmessage = (msg) => {
+              const data = JSON.parse(msg.data);
+              if (data.msg_type === 'authorize') {
+                tempWs.close();
+                resolve({ balance: data.authorize.balance, currency: data.authorize.currency });
+              } else if (data.error) {
+                tempWs.close();
+                resolve(null);
+              }
+            };
+            tempWs.onerror = () => resolve(null);
+            setTimeout(() => { tempWs.close(); resolve(null); }, 5000);
+          } catch (e) {
+            resolve(null);
+          }
+        });
+
+        const balData = await fetchBalance();
+        initialBalance = balData ? balData.balance : (targetAccount.balance || 0);
+        initialCurrency = balData ? balData.currency : (targetAccount.currency || 'USD');
 
         const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
           headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
