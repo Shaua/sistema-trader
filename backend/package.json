@@ -9,8 +9,10 @@
     "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
+    "@deriv-com/api-client": "^1.0.1",
     "@deriv/deriv-api": "^1.0.12",
     "@supabase/supabase-js": "^2.43.0",
+    "axios": "^1.18.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

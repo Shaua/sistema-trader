@@ -1,25 +1,64 @@
 const WebSocket = require('ws');
+const axios = require('axios');
 const { syncDerivOperations } = require('./derivApi');
 
 const activeConnections = new Map();
 
+function isAlphanumericAppId(appId) {
+  if (!appId) return false;
+  return /[a-zA-Z]/.test(String(appId));
+}
+
 /**
  * Inicia a conexão em tempo real com a Deriv para um usuário.
  */
-function startRealtimeSync(userId, token, accountType = 'REAL', appId = null) {
+async function startRealtimeSync(userId, token, accountType = 'REAL', appId = null) {
   const finalAppId = appId || 1089;
+  const isNewFlow = isAlphanumericAppId(appId);
   const connectionKey = `${userId}_${accountType}`;
+  
   if (activeConnections.has(connectionKey)) {
     console.log(`[Realtime] Conexão já ativa para o usuário ${userId} (${accountType})`);
     return;
   }
 
-  console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType})...`);
-  const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`);
+  console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType}) [Flow: ${isNewFlow ? 'OTP' : 'Classic'}]...`);
+  
+  let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`;
+
+  if (isNewFlow) {
+    try {
+      // Pega accountId correspondente
+      const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
+        headers: { 'Deriv-App-ID': finalAppId, 'Authorization': `Bearer ${token}` }
+      });
+      const targetType = accountType.toLowerCase();
+      const targetAccount = accountsRes.data.data.find(a => a.account_type === targetType);
+      
+      if (!targetAccount) throw new Error(`Conta ${accountType} não encontrada.`);
+
+      // Pega OTP WebSocket URL
+      const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
+        headers: { 'Deriv-App-ID': finalAppId, 'Authorization': `Bearer ${token}` }
+      });
+      
+      wsUrl = otpRes.data.data.url;
+    } catch (err) {
+      console.error(`[Realtime] Falha ao iniciar OTP para ${userId} (${accountType}):`, err.message);
+      return;
+    }
+  }
+
+  const ws = new WebSocket(wsUrl);
   
   ws.on('open', () => {
-    // 1. Autenticar
-    ws.send(JSON.stringify({ authorize: token }));
+    // 1. Autenticar (se for fluxo clássico, no fluxo OTP já vem autenticado na URL)
+    if (!isNewFlow) {
+      ws.send(JSON.stringify({ authorize: token }));
+    } else {
+      console.log(`[Realtime] OTP Conectado para ${userId} (${accountType}). Assinando transactions...`);
+      ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
+    }
   });
 
   ws.on('message', async (data) => {
@@ -31,7 +70,7 @@ function startRealtimeSync(userId, token, accountType = 'REAL', appId = null) {
     
     if (msg.msg_type === 'authorize') {
       console.log(`[Realtime] Autenticado para ${userId} (${accountType}). Assinando transactions...`);
-      // 2. Assinar stream de transações
+      // 2. Assinar stream de transações (fluxo clássico)
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
       
     } 
