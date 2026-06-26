@@ -88,6 +88,7 @@ export default function useDerivBot() {
   const configRef = useRef(config);
   const isRunningRef = useRef(isRunning);
   const isTradingRef = useRef(false);
+  const isNewFlowRef = useRef(false);
 
   useEffect(() => {
     configRef.current = config;
@@ -118,6 +119,7 @@ export default function useDerivBot() {
     }
 
     const isNewFlow = (appId && /[a-zA-Z]/.test(String(appId)));
+    isNewFlowRef.current = isNewFlow;
     let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
 
     if (isNewFlow) {
@@ -479,19 +481,26 @@ export default function useDerivBot() {
     isTradingRef.current = true; // Trava os ticks para não abrir múltiplas operações
     setStatus('Executando entrada Rápida...');
     
+    const params = {
+      amount: statsRef.current.currentStake,
+      basis: "stake",
+      contract_type: "DIGITUNDER",
+      currency: "USD",
+      duration: 1,
+      duration_unit: "t",
+      barrier: "8"
+    };
+
+    if (isNewFlowRef.current) {
+      params.underlying_symbol = configRef.current.market;
+    } else {
+      params.symbol = configRef.current.market;
+    }
+
     ws.current.send(JSON.stringify({
       buy: "1",
       price: statsRef.current.currentStake,
-      parameters: {
-        amount: statsRef.current.currentStake,
-        basis: "stake",
-        contract_type: "DIGITUNDER",
-        currency: "USD",
-        duration: 1,
-        duration_unit: "t",
-        symbol: configRef.current.market,
-        barrier: "8"
-      }
+      parameters: params
     }));
 
     // Sistema de segurança: Se a operação travar por qualquer motivo na Deriv (delay, erro de rede), destrava após 15s
