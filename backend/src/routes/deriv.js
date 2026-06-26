@@ -211,10 +211,24 @@ router.get('/connection-info', authMiddleware, async (req, res) => {
     
     const accounts = accountsRes.data.data;
     const targetAccountType = accountType === 'DEMO' ? 'demo' : 'real';
-    const targetAccount = accounts.find(a => a.account_type === targetAccountType);
     
-    if (!targetAccount) {
+    // Filter matching account types
+    const matchingAccounts = accounts.filter(a => a.account_type === targetAccountType);
+    
+    if (matchingAccounts.length === 0) {
       return res.status(400).json({ error: 'Conta não encontrada para este App ID.' });
+    }
+
+    // Sort by balance to pick the account that actually has funds, prioritizing 'CR' (standard fiat options account)
+    let targetAccount = matchingAccounts[0];
+    if (targetAccountType === 'real') {
+      const crAccount = matchingAccounts.find(a => a.account_id.startsWith('CR') && a.balance > 0);
+      if (crAccount) {
+        targetAccount = crAccount;
+      } else {
+        // Fallback to highest balance
+        targetAccount = matchingAccounts.sort((a, b) => (b.balance || 0) - (a.balance || 0))[0];
+      }
     }
 
     const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
