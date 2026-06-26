@@ -140,6 +140,7 @@ export default function useDerivBot() {
       });
       wsUrl = data.wsUrl;
       isNewFlow = data.isNewFlow;
+      isNewFlowRef.current = isNewFlow;
       initialBalance = data.balance || 0;
       initialCurrency = data.currency || 'USD';
     } catch (err) {
