@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import axios from 'axios';
 
 const APP_ID = 1089;
 
@@ -40,7 +41,8 @@ const playAlertSound = (type) => {
 };
 
 export default function useDerivBot() {
-  const { profile } = useStore();
+  const profile = useStore(state => state.profile);
+  const activeAccountType = useStore(state => state.activeAccountType);
   const ws = useRef(null);
   const isComponentMounted = useRef(true);
 
@@ -113,8 +115,9 @@ export default function useDerivBot() {
     }
     
     setStatus('Conectando...');
+    setAuthorized(false);
     
-    const accountType = useStore.getState().activeAccountType || 'REAL';
+    const accountType = activeAccountType || 'REAL';
     const token = accountType === 'DEMO' ? profile?.deriv_demo_token : profile?.deriv_token;
     const appId = profile?.deriv_app_id || 1089;
 
@@ -132,7 +135,6 @@ export default function useDerivBot() {
     if (isNewFlow) {
       setStatus('Obtendo chave de acesso segura...');
       try {
-        const { default: axios } = await import('axios');
         const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
           headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
         });
@@ -306,7 +308,7 @@ export default function useDerivBot() {
         setTimeout(() => connect(), 5000);
       }
     };
-  }, [profile]);
+  }, [profile, activeAccountType]);
 
   useEffect(() => {
     connect();
