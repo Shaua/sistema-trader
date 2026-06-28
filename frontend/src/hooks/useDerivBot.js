@@ -18,23 +18,30 @@ const playAlertSound = (type) => {
     
     if (type === 'win') {
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-      oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
-      oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+      // Arpejo da vitória (Chamativo)
+      const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+      notes.forEach((freq, i) => {
+        oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.1));
+      });
       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      gainNode.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
+      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime + 0.4);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
       oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.5);
+      oscillator.stop(audioCtx.currentTime + 1.5);
     } else if (type === 'loss') {
       oscillator.type = 'sawtooth';
-      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
-      oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+      // Sirene de Stop Loss (Dramático e pulsante)
+      for (let i = 0; i < 5; i++) {
+        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime + (i * 0.25));
+        oscillator.frequency.setValueAtTime(250, audioCtx.currentTime + (i * 0.25) + 0.125);
+      }
       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+      gainNode.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.05);
+      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime + 1.0);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
       oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.8);
+      oscillator.stop(audioCtx.currentTime + 1.5);
     }
   } catch (e) {
     console.error("Audio alert failed", e);
