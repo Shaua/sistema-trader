@@ -81,6 +81,7 @@ export default function useDerivBot() {
     ghostMode: false,
     ghostEntryWait: false,
     recentQuotes: [],
+    amortizationDebt: 0,
     diagnostic: {
       targetLosses: 1,
       highInLast10: 0,
@@ -312,6 +313,7 @@ export default function useDerivBot() {
     statsRef.current.consecutiveWins = 0;
     statsRef.current.ghostMode = false;
     statsRef.current.ghostEntryWait = false;
+    statsRef.current.amortizationDebt = 0;
     statsRef.current.diagnostic = {
       targetLosses: 1,
       highInLast10: 0,
@@ -635,8 +637,9 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit += profit;
     
     const rm = configRef.current.riskManagement;
-    const maxLevel = rm === 'hit_and_run' ? 3 : 1; // 3 níveis para Hit and Run, 1 para os demais modos
+    const maxLevel = rm === 'hit_and_run' ? 3 : rm === 'amortizacao' ? 100 : 1; // Amortização pode rodar múltiplos ciclos
     const multiplier = rm === 'hit_and_run' ? 2.7 : rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
+    const estimatedPayoutRatio = 0.1714; // Payout médio estimado da estratégia LOW (Dígito abaixo de 8)
     
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
@@ -656,69 +659,111 @@ export default function useDerivBot() {
       }
     }
 
-    // Resolve o bug de precisão de ponto flutuante do JavaScript (ex: -0.14 + 0.21 = 0.07? Não, -0.35 + 0.21 = -0.14)
-    // Para evitar que um lucro residual quase zero seja tratado como prejuízo, usamos um pequeno epsilon
-    if (statsRef.current.cycleProfit >= -0.01) {
-      // Ciclo encerrado com lucro (ou zero). Reseta!
-      nextStake = configRef.current.initialStake;
-      level = 0;
-      statsRef.current.cycleProfit = 0;
-
-      // -----------------------------------------------------
-      // Pausa após Grande Sequência de Vitórias (Win-Streak Breaker)
-      // -----------------------------------------------------
-      if (statsRef.current.consecutiveWins >= 12) {
-        statsRef.current.cooldownTicks = 30; // Pausa para embaralhar o mercado
-        statsRef.current.consecutiveWins = 0;
-        statsRef.current.diagnostic.radarMessage = '🎉 Sequência de 12 Wins! Fazendo pausa preventiva de 30 ticks.';
-        setStatus('Resfriando após Sequência de Vitórias...');
-      }
-    } else {
-      // Está no prejuízo neste ciclo.
+    // Lógica especial para o modo Amortização
+    if (rm === 'amortizacao') {
       if (!won) {
-        // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
-        // Modo Veloz usa 8 ticks para manter agilidade, Sniper usa 25 ticks.
+        // Adiciona a perda exata à dívida
+        statsRef.current.amortizationDebt += Math.abs(profit);
+        level += 1;
+        
         let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
-        
-        // Gatilho Dinâmico de Risco: Maior resfriamento se estivermos indo para o Martingale no modo veloz
-        if (configRef.current.mode === 'veloz' && level > 0) {
-          cooldown = 15;
-        }
-        
         statsRef.current.cooldownTicks = cooldown;
         
-        // -----------------------------------------------------
-        // MODO FANTASMA (Ativa após Loss)
-        // -----------------------------------------------------
         statsRef.current.ghostMode = true;
         statsRef.current.ghostEntryWait = false;
-        statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para blindar o próximo Martingale.';
+        statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado. Amortizando dívida...';
 
-        // Se perdeu, multiplica a aposta se ainda não bateu no limite
-        if (level < maxLevel) {
-          level += 1;
-          nextStake = nextStake * multiplier;
-        } else {
-          // Bateu no limite máximo de perdas da estratégia!
-          // Aceita a perda do ciclo e volta para a entrada inicial
-          nextStake = configRef.current.initialStake;
-          level = 0;
-          statsRef.current.cycleProfit = 0;
-        }
+        // Calcula a nova aposta diluída em 10 parcelas
+        const installment = statsRef.current.amortizationDebt / 10;
+        nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
+        
       } else {
-        // Se ganhou a operação, mas ainda tem prejuízo no ciclo:
-        if (rm === 'hit_and_run') {
-          // Martingale Fracionado: Mantém a stake atual para continuar recuperando!
-          setStatus('Recuperação fracionada. Mantendo valor da aposta...');
-          // Não alteramos o level nem a nextStake (elas continuam as mesmas do último trade)
+        if (statsRef.current.amortizationDebt > 0) {
+          // Abate a dívida usando o lucro extra gerado pela aposta maior
+          const baseExpectedProfit = configRef.current.initialStake * estimatedPayoutRatio;
+          const excessProfit = profit - baseExpectedProfit;
+          
+          if (excessProfit > 0) {
+            statsRef.current.amortizationDebt -= excessProfit;
+          }
+          
+          if (statsRef.current.amortizationDebt <= 0.02) {
+            // Dívida zerada!
+            statsRef.current.amortizationDebt = 0;
+            nextStake = configRef.current.initialStake;
+            level = 0;
+            statsRef.current.cycleProfit = 0;
+            setStatus('Dívida amortizada! Retornando ao lucro padrão.');
+          } else {
+            // Ainda tem dívida, recalcula a parcela mantendo a divisão por 10 para suavizar
+            const installment = statsRef.current.amortizationDebt / 10;
+            nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
+            setStatus(`Amortizando... Resta $${statsRef.current.amortizationDebt.toFixed(2)}`);
+          }
         } else {
-          // Outros modos: Recuperação parcial. Aceita o pequeno loss do ciclo e recomeça para proteger a banca.
-          setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
-          level = 0;
+          // Win normal
           nextStake = configRef.current.initialStake;
+          level = 0;
           statsRef.current.cycleProfit = 0;
         }
       }
+    } else {
+      // -----------------------------------------------------
+      // Lógica de Ciclo Convencional (Outros Modos)
+      // -----------------------------------------------------
+      // Resolve o bug de precisão de ponto flutuante do JavaScript
+      if (statsRef.current.cycleProfit >= -0.01) {
+        // Ciclo encerrado com lucro (ou zero). Reseta!
+        nextStake = configRef.current.initialStake;
+        level = 0;
+        statsRef.current.cycleProfit = 0;
+      } else {
+        // Está no prejuízo neste ciclo.
+        if (!won) {
+          // Se perdeu na entrada real, ativa o Resfriamento para fugir da "onda"
+          let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
+          
+          if (configRef.current.mode === 'veloz' && level > 0) {
+            cooldown = 15;
+          }
+          
+          statsRef.current.cooldownTicks = cooldown;
+          
+          statsRef.current.ghostMode = true;
+          statsRef.current.ghostEntryWait = false;
+          statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para blindar o próximo Martingale.';
+
+          // Se perdeu, multiplica a aposta se ainda não bateu no limite
+          if (level < maxLevel) {
+            level += 1;
+            nextStake = nextStake * multiplier;
+          } else {
+            nextStake = configRef.current.initialStake;
+            level = 0;
+            statsRef.current.cycleProfit = 0;
+          }
+        } else {
+          // Se ganhou a operação, mas ainda tem prejuízo no ciclo:
+          if (rm === 'hit_and_run') {
+            setStatus('Recuperação fracionada. Mantendo valor da aposta...');
+          } else {
+            setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
+            level = 0;
+            nextStake = configRef.current.initialStake;
+            statsRef.current.cycleProfit = 0;
+          }
+        }
+      }
+    }
+
+    // -----------------------------------------------------
+    // Pausa após Grande Sequência de Vitórias (Win-Streak Breaker)
+    // -----------------------------------------------------
+    if (statsRef.current.consecutiveWins >= 12 && level === 0 && statsRef.current.amortizationDebt <= 0) {
+      statsRef.current.cooldownTicks = 30; // Pausa para embaralhar o mercado
+      statsRef.current.consecutiveWins = 0;
+      statsRef.current.diagnostic.radarMessage = '🎉 Sequência de 12 Wins! Fazendo pausa preventiva de 30 ticks.';
+      setStatus('Resfriando após Sequência de Vitórias...');
     }
     
     nextStake = parseFloat(nextStake.toFixed(2));
