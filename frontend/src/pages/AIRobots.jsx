@@ -104,6 +104,16 @@ export default function AIRobots() {
               <span style={{color: '#9CA3AF'}}>Resfriamento:</span> 
               <span>{stats.cooldownTicks > 0 ? `${stats.cooldownTicks}s` : 'Pronto'}</span>
             </div>
+            {stats.ghostMode && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#A78BFA', fontWeight: 600 }}>
+                <span>Modo Fantasma:</span> 
+                <span>ATIVADO 👻</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{color: '#9CA3AF'}}>Piso Garantido:</span> 
+              <span style={{ color: stats.guaranteedFloor > 0 ? '#34D399' : '#9CA3AF' }}>${stats.guaranteedFloor.toFixed(2)}</span>
+            </div>
             <div style={{ color: '#FCD34D', marginTop: 4, borderTop: '1px solid #1F2937', paddingTop: 6, lineHeight: 1.4 }}>
               &gt; {stats.diagnostic?.radarMessage}
             </div>

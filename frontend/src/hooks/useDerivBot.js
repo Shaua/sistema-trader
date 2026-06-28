@@ -76,6 +76,11 @@ export default function useDerivBot() {
     lastDigit: null,
     cooldownTicks: 0,
     recentDigits: [],
+    guaranteedFloor: 0,
+    consecutiveWins: 0,
+    ghostMode: false,
+    ghostEntryWait: false,
+    recentQuotes: [],
     diagnostic: {
       targetLosses: 1,
       highInLast10: 0,
@@ -302,6 +307,11 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit = 0;
     statsRef.current.cooldownTicks = 0;
     statsRef.current.recentDigits = [];
+    statsRef.current.recentQuotes = [];
+    statsRef.current.guaranteedFloor = 0;
+    statsRef.current.consecutiveWins = 0;
+    statsRef.current.ghostMode = false;
+    statsRef.current.ghostEntryWait = false;
     statsRef.current.diagnostic = {
       targetLosses: 1,
       highInLast10: 0,
@@ -364,6 +374,31 @@ export default function useDerivBot() {
 
     statsRef.current.lastDigit = lastDigit;
     
+    // -----------------------------------------------------
+    // 0. Filtro de Alta Volatilidade (Spike Detector)
+    // -----------------------------------------------------
+    const currentQuote = parseFloat(tickData.quote);
+    if (statsRef.current.lastQuoteValue !== undefined) {
+      const diff = Math.abs(currentQuote - statsRef.current.lastQuoteValue);
+      statsRef.current.recentQuotes.push(diff);
+      if (statsRef.current.recentQuotes.length > 50) {
+        statsRef.current.recentQuotes.shift();
+      }
+      
+      if (statsRef.current.recentQuotes.length >= 10) {
+        const avgDiff = statsRef.current.recentQuotes.reduce((a, b) => a + b, 0) / statsRef.current.recentQuotes.length;
+        // Se o salto for > 3x a média histórica (Spike)
+        if (diff > avgDiff * 3 && avgDiff > 0) {
+          statsRef.current.cooldownTicks = 10; // Força resfriamento de 10 ticks
+          statsRef.current.virtualLossCount = 0;
+          statsRef.current.diagnostic.radarMessage = `⚠️ Spike detectado! (${diff.toFixed(pipSize)}). Resfriando...`;
+          setStats({ ...statsRef.current });
+          if (status !== 'Alta volatilidade detectada. Pausando...') setStatus('Alta volatilidade detectada. Pausando...');
+        }
+      }
+    }
+    statsRef.current.lastQuoteValue = currentQuote;
+
     // Atualiza Radar de Ondas (últimos 50 ticks) SEMPRE, mesmo com operação aberta, para não perder o tracking do mercado.
     statsRef.current.recentDigits.push(lastDigit);
     if (statsRef.current.recentDigits.length > 50) {
@@ -373,6 +408,30 @@ export default function useDerivBot() {
     // Se houver uma operação em andamento, bloqueia a leitura de novos gatilhos, 
     // mas o histórico de dígitos continuou sendo perfeitamente alimentado acima.
     if (isTradingRef.current) return;
+
+    // -----------------------------------------------------
+    // Resolução do MODO FANTASMA (Paper Trading Background)
+    // -----------------------------------------------------
+    if (statsRef.current.ghostEntryWait) {
+      statsRef.current.ghostEntryWait = false;
+      const isVirtualLossNow = lastDigit === 8 || lastDigit === 9;
+      
+      if (!isVirtualLossNow) {
+        // Ghost Win! A tempestade passou, desliga o ghost mode.
+        statsRef.current.ghostMode = false;
+        statsRef.current.virtualLossCount = 0;
+        statsRef.current.diagnostic.radarMessage = 'Ghost Trade Win! Retornando ao mercado real...';
+        setStats({ ...statsRef.current });
+        setStatus('Buscando trades reais...');
+      } else {
+        // Ghost Loss! O mercado ainda está ruim. Continua no Ghost Mode.
+        statsRef.current.virtualLossCount = 0;
+        statsRef.current.diagnostic.radarMessage = 'Ghost Trade Loss! O mercado continua ruim. Evitamos um loss real.';
+        setStats({ ...statsRef.current });
+        setStatus('Ghost Trade Loss. Aguardando novo ciclo fantasma...');
+      }
+      return; // Já consumiu este tick para resolver o fantasma
+    }
     
     // 1. Resfriamento Pós-Loss
     if (statsRef.current.cooldownTicks > 0) {
@@ -397,12 +456,12 @@ export default function useDerivBot() {
                          configRef.current.mode === 'balanceado' ? 2 : 
                          configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
 
-    // Gatilho Dinâmico de Risco (Smart Recovery Progressivo)
-    // Se estiver no modo veloz, escala a proteção de acordo com o nível da aposta (Martingale)
-    if (configRef.current.mode === 'veloz') {
-      if (statsRef.current.martingaleLevel === 1) targetLosses = 2; // Para a aposta de $2.70
-      else if (statsRef.current.martingaleLevel === 2) targetLosses = 3; // Para a aposta de $7.29
-      else if (statsRef.current.martingaleLevel >= 3) targetLosses = 4; // Para a aposta de $19.68 (Defesa Sniper máxima)
+    // Gatilho Dinâmico de Risco (Smart Recovery Delay)
+    // Aumenta a exigência gráfica nos Martingales para TODOS os modos
+    if (statsRef.current.martingaleLevel === 1) {
+      targetLosses += 1; 
+    } else if (statsRef.current.martingaleLevel >= 2) {
+      targetLosses += 2;
     }
 
     statsRef.current.diagnostic.targetLosses = targetLosses;
@@ -465,10 +524,16 @@ export default function useDerivBot() {
           }
         }
 
-        // Enviar ordem direta de compra (Zero Delay)
+        // Enviar ordem direta de compra (Zero Delay) ou Ordem Fantasma
         statsRef.current.virtualLossCount = 0; // reset
         setStats({ ...statsRef.current });
         
+        if (statsRef.current.ghostMode) {
+          statsRef.current.ghostEntryWait = true;
+          setStatus('Executando Ghost Trade...');
+          return;
+        }
+
         buyContractDirect();
       }
     } else {
@@ -540,8 +605,13 @@ export default function useDerivBot() {
     
     statsRef.current.profit += profit;
     statsRef.current.balance += profit;
-    if (won) statsRef.current.wins += 1;
-    else statsRef.current.losses += 1;
+    if (won) {
+      statsRef.current.wins += 1;
+      statsRef.current.consecutiveWins += 1;
+    } else {
+      statsRef.current.losses += 1;
+      statsRef.current.consecutiveWins = 0;
+    }
 
     // Registra trade
     const newTrade = {
@@ -571,6 +641,21 @@ export default function useDerivBot() {
     let nextStake = statsRef.current.currentStake;
     let level = statsRef.current.martingaleLevel;
 
+    // -----------------------------------------------------
+    // Trailing Stop (Piso Garantido)
+    // -----------------------------------------------------
+    const totalProfitForTrailing = statsRef.current.profit;
+    const target = configRef.current.targetProfit;
+    
+    // Se bater 70% da meta, garante 30%. Se bater 90%, garante 60%.
+    if (target > 0) {
+      if (totalProfitForTrailing >= target * 0.9 && statsRef.current.guaranteedFloor < target * 0.6) {
+        statsRef.current.guaranteedFloor = target * 0.6;
+      } else if (totalProfitForTrailing >= target * 0.7 && statsRef.current.guaranteedFloor < target * 0.3) {
+        statsRef.current.guaranteedFloor = target * 0.3;
+      }
+    }
+
     // Resolve o bug de precisão de ponto flutuante do JavaScript (ex: -0.14 + 0.21 = 0.07? Não, -0.35 + 0.21 = -0.14)
     // Para evitar que um lucro residual quase zero seja tratado como prejuízo, usamos um pequeno epsilon
     if (statsRef.current.cycleProfit >= -0.01) {
@@ -578,6 +663,16 @@ export default function useDerivBot() {
       nextStake = configRef.current.initialStake;
       level = 0;
       statsRef.current.cycleProfit = 0;
+
+      // -----------------------------------------------------
+      // Pausa após Grande Sequência de Vitórias (Win-Streak Breaker)
+      // -----------------------------------------------------
+      if (statsRef.current.consecutiveWins >= 12) {
+        statsRef.current.cooldownTicks = 30; // Pausa para embaralhar o mercado
+        statsRef.current.consecutiveWins = 0;
+        statsRef.current.diagnostic.radarMessage = '🎉 Sequência de 12 Wins! Fazendo pausa preventiva de 30 ticks.';
+        setStatus('Resfriando após Sequência de Vitórias...');
+      }
     } else {
       // Está no prejuízo neste ciclo.
       if (!won) {
@@ -592,6 +687,13 @@ export default function useDerivBot() {
         
         statsRef.current.cooldownTicks = cooldown;
         
+        // -----------------------------------------------------
+        // MODO FANTASMA (Ativa após Loss)
+        // -----------------------------------------------------
+        statsRef.current.ghostMode = true;
+        statsRef.current.ghostEntryWait = false;
+        statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para blindar o próximo Martingale.';
+
         // Se perdeu, multiplica a aposta se ainda não bateu no limite
         if (level < maxLevel) {
           level += 1;
@@ -627,17 +729,24 @@ export default function useDerivBot() {
     setStats({ ...statsRef.current });
 
     // Verifica metas
-    const totalProfit = statsRef.current.profit;
-    if (totalProfit >= configRef.current.targetProfit) {
+    const currentTotalProfit = statsRef.current.profit;
+    if (currentTotalProfit >= configRef.current.targetProfit) {
       stopBot();
       setStatus('Meta de Lucro Atingida!');
       playAlertSound('win');
-    } else if (totalProfit <= -configRef.current.stopLoss) {
+    } else if (currentTotalProfit <= -configRef.current.stopLoss) {
       stopBot();
       setStatus('Stop Loss Atingido!');
       playAlertSound('loss');
+    } else if (statsRef.current.guaranteedFloor > 0 && currentTotalProfit < statsRef.current.guaranteedFloor) {
+      // Bateu no Trailing Stop (Piso Garantido)
+      stopBot();
+      setStatus(`Piso Garantido Atingido! (Lucro protegido: $${statsRef.current.guaranteedFloor.toFixed(2)})`);
+      playAlertSound('win');
     } else {
-      setStatus('Buscando trades...');
+      if (status !== 'Resfriando após Sequência de Vitórias...') {
+        setStatus('Buscando trades...');
+      }
     }
   };
 
