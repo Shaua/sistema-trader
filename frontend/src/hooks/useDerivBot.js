@@ -50,11 +50,11 @@ export default function useDerivBot() {
   const [config, setConfig] = useState({
     initialStake: 0.35,
     targetProfit: 0.33,
-    stopLoss: 11.00,
-    market: '1HZ100V', // Volatility 100 (1s) Index
+    stopLoss: 15.00,
+    market: 'R_10', // Volatility 10 Index
     strategy: 'LOW',
     mode: 'veloz', // veloz (1), balanceado (2), preciso (3)
-    riskManagement: 'hit_and_run', // conservador, otimizado, agressivo, hit_and_run
+    riskManagement: 'hibrido', // conservador, otimizado, agressivo, hit_and_run, amortizacao, hibrido
   });
 
   // State
