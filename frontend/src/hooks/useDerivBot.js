@@ -637,7 +637,7 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit += profit;
     
     const rm = configRef.current.riskManagement;
-    const maxLevel = rm === 'hit_and_run' ? 3 : rm === 'amortizacao' ? 100 : 1; // Amortização pode rodar múltiplos ciclos
+    const maxLevel = rm === 'hit_and_run' ? 3 : rm === 'amortizacao' || rm === 'hibrido' ? 100 : 1; // Amortização e Híbrido podem rodar múltiplos ciclos
     const multiplier = rm === 'hit_and_run' ? 2.7 : rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
     const estimatedPayoutRatio = 0.1714; // Payout médio estimado da estratégia LOW (Dígito abaixo de 8)
     
@@ -707,6 +707,51 @@ export default function useDerivBot() {
           statsRef.current.cycleProfit = 0;
         }
       }
+    } else if (rm === 'hibrido') {
+      // -----------------------------------------------------
+      // Lógica de Ciclo Híbrido (Agressivo + Amortizado)
+      // -----------------------------------------------------
+      if (statsRef.current.cycleProfit >= -0.01) {
+        // Ciclo encerrado com lucro (ou zero). Reseta!
+        nextStake = configRef.current.initialStake;
+        level = 0;
+        statsRef.current.cycleProfit = 0;
+      } else {
+        // Está no prejuízo neste ciclo.
+        if (!won) {
+          level += 1;
+          
+          let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
+          if (configRef.current.mode === 'veloz' && level > 0) {
+            cooldown = 15;
+          }
+          statsRef.current.cooldownTicks = cooldown;
+          
+          statsRef.current.ghostMode = true;
+          statsRef.current.ghostEntryWait = false;
+          
+          const baseProfit = configRef.current.initialStake * estimatedPayoutRatio;
+          const debt = Math.abs(statsRef.current.cycleProfit);
+
+          if (level === 1) {
+            // Nível 1: Martingale Agressivo Rápido
+            statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para Martingale Agressivo (Nível 1).';
+            nextStake = (debt + baseProfit) / estimatedPayoutRatio;
+          } else {
+            // Nível 2 em diante: Amortização Suave em 5 parcelas
+            statsRef.current.diagnostic.radarMessage = `👻 Ghost Mode Ativado. Amortização Híbrida (Nível ${level})...`;
+            const installment = debt / 5;
+            nextStake = (installment + baseProfit) / estimatedPayoutRatio;
+          }
+        } else {
+          // Se ganhou mas ainda está no prejuízo, recalcula a próxima parcela
+          const baseProfit = configRef.current.initialStake * estimatedPayoutRatio;
+          const debt = Math.abs(statsRef.current.cycleProfit);
+          const installment = debt / 5;
+          nextStake = (installment + baseProfit) / estimatedPayoutRatio;
+          setStatus(`Amortização Híbrida: Resta $${debt.toFixed(2)}`);
+        }
+      }
     } else {
       // -----------------------------------------------------
       // Lógica de Ciclo Convencional (Outros Modos)
@@ -759,7 +804,7 @@ export default function useDerivBot() {
     // -----------------------------------------------------
     // Pausa após Grande Sequência de Vitórias (Win-Streak Breaker)
     // -----------------------------------------------------
-    if (statsRef.current.consecutiveWins >= 12 && level === 0 && statsRef.current.amortizationDebt <= 0) {
+    if (statsRef.current.consecutiveWins >= 12 && level === 0 && statsRef.current.amortizationDebt <= 0 && statsRef.current.cycleProfit >= -0.01) {
       statsRef.current.cooldownTicks = 30; // Pausa para embaralhar o mercado
       statsRef.current.consecutiveWins = 0;
       statsRef.current.diagnostic.radarMessage = '🎉 Sequência de 12 Wins! Fazendo pausa preventiva de 30 ticks.';

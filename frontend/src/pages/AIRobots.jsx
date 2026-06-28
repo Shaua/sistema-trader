@@ -116,6 +116,12 @@ export default function AIRobots() {
                 <span>${stats.amortizationDebt.toFixed(2)}</span>
               </div>
             )}
+            {config.riskManagement === 'hibrido' && stats.cycleProfit < -0.01 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#EF4444', fontWeight: 600 }}>
+                <span>Prejuízo a Recuperar:</span> 
+                <span>${Math.abs(stats.cycleProfit).toFixed(2)}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{color: '#9CA3AF'}}>Piso Garantido:</span> 
               <span style={{ color: stats.guaranteedFloor > 0 ? '#34D399' : '#9CA3AF' }}>${stats.guaranteedFloor.toFixed(2)}</span>
@@ -192,6 +198,7 @@ export default function AIRobots() {
             <select className="form-input" style={{ width: 150 }} value={config.riskManagement} onChange={(e) => updateConfig('riskManagement', e.target.value)} disabled={isRunning}>
               <option value="hit_and_run">Hit and Run (2.7x)</option>
               <option value="amortizacao">Amortização (10x)</option>
+              <option value="hibrido">Híbrido (Agres.+Amort.)</option>
               <option value="conservador">Conservador</option>
               <option value="otimizado">Otimizado</option>
               <option value="agressivo">Agressivo</option>
