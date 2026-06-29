@@ -835,16 +835,11 @@ export default function useDerivBot() {
       stopBot();
       setStatus('Stop Loss Atingido!');
       playAlertSound('loss');
-    } else if (statsRef.current.guaranteedFloor > 0 && currentTotalProfit < statsRef.current.guaranteedFloor) {
-      // Bateu no Trailing Stop (Piso Garantido)
+    } else if (statsRef.current.guaranteedFloor > 0 && currentTotalProfit < statsRef.current.guaranteedFloor && currentTotalProfit > 0) {
+      // Bateu no Trailing Stop (Piso Garantido), mas só sai se ainda estiver no lucro
       stopBot();
-      if (currentTotalProfit >= 0) {
-        setStatus(`Piso de Lucro Atingido! (Saída em: $${currentTotalProfit.toFixed(2)})`);
-        playAlertSound('win');
-      } else {
-        setStatus(`Devolveu o lucro! Parada de Segurança (Final: $${currentTotalProfit.toFixed(2)})`);
-        playAlertSound('loss');
-      }
+      setStatus(`Piso de Lucro Atingido! (Saída em: $${currentTotalProfit.toFixed(2)})`);
+      playAlertSound('win');
     } else {
       if (status !== 'Resfriando após Sequência de Vitórias...') {
         setStatus('Buscando trades...');
