@@ -58,6 +58,8 @@ export default function useDerivBot() {
     initialStake: 0.35,
     targetProfit: 0.33,
     stopLoss: 15.00,
+    maxStake: 10.00,
+    maxMartingaleLevel: 3,
     market: 'R_10', // Volatility 10 Index
     strategy: 'LOW',
     mode: 'veloz', // veloz (1), balanceado (2), preciso (3)
@@ -644,7 +646,8 @@ export default function useDerivBot() {
     statsRef.current.cycleProfit += profit;
     
     const rm = configRef.current.riskManagement;
-    const maxLevel = rm === 'hit_and_run' ? 3 : rm === 'amortizacao' || rm === 'hibrido' ? 100 : 1; // Amortização e Híbrido podem rodar múltiplos ciclos
+    const limitNiveis = configRef.current.maxMartingaleLevel || 3;
+    const maxLevel = rm === 'hit_and_run' ? limitNiveis : rm === 'amortizacao' || rm === 'hibrido' ? limitNiveis : 1;
     const multiplier = rm === 'hit_and_run' ? 2.7 : rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
     const estimatedPayoutRatio = 0.1714; // Payout médio estimado da estratégia LOW (Dígito abaixo de 8)
     
@@ -820,14 +823,27 @@ export default function useDerivBot() {
     
     nextStake = parseFloat(nextStake.toFixed(2));
     
+    // Trava 1: Limite máximo de aposta (Max Stake)
+    if (configRef.current.maxStake > 0 && nextStake > configRef.current.maxStake) {
+      nextStake = configRef.current.maxStake;
+    }
+    
+    // Verifica metas ATUAIS
+    const currentTotalProfit = statsRef.current.profit;
+    
+    // Trava 2: Pre-Emptive Stop Loss (Verifica se a próxima aposta quebraria o Stop Loss)
+    const wouldExceedStopLoss = (currentTotalProfit - nextStake) <= -configRef.current.stopLoss;
+    
     statsRef.current.currentStake = nextStake;
     statsRef.current.martingaleLevel = level;
     
     setStats({ ...statsRef.current });
 
-    // Verifica metas
-    const currentTotalProfit = statsRef.current.profit;
-    if (currentTotalProfit >= configRef.current.targetProfit) {
+    if (wouldExceedStopLoss) {
+      stopBot();
+      setStatus(`Stop Loss Preventivo! Evitou entrada de $${nextStake.toFixed(2)}`);
+      playAlertSound('loss');
+    } else if (currentTotalProfit >= configRef.current.targetProfit) {
       stopBot();
       setStatus('Meta de Lucro Atingida!');
       playAlertSound('win');
