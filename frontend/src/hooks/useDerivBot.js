@@ -323,6 +323,7 @@ export default function useDerivBot() {
     statsRef.current.ghostMode = false;
     statsRef.current.ghostEntryWait = false;
     statsRef.current.amortizationDebt = 0;
+    statsRef.current.fixedInstallment = 0;
     statsRef.current.diagnostic = {
       targetLosses: 1,
       highInLast10: 0,
@@ -483,13 +484,13 @@ export default function useDerivBot() {
                          configRef.current.mode === 'preciso' ? 3 : 4; // Super Sniper = 4
 
     // Gatilho Dinâmico de Risco (Smart Recovery Delay)
-    // Aumenta a exigência gráfica nos Martingales para TODOS os modos
-    if (statsRef.current.martingaleLevel === 1) {
-      targetLosses += 1; 
-    } else if (statsRef.current.martingaleLevel === 2) {
-      targetLosses += 2;
-    } else if (statsRef.current.martingaleLevel >= 3) {
-      targetLosses += 3; // Nível extremo, exige máxima confirmação gráfica
+    // Aumenta a exigência gráfica nos Martingales, mas sem exagerar para não congelar o robô
+    if (statsRef.current.martingaleLevel >= 1) {
+      if (configRef.current.mode === 'veloz' || configRef.current.mode === 'balanceado') {
+        targetLosses = 2; // Limite máximo de 2 perdas virtuais seguidas para garantir rapidez
+      } else {
+        targetLosses += 1; // Modos preciso/sniper ganham +1 de exigência no martingale
+      }
     }
 
     statsRef.current.diagnostic.targetLosses = targetLosses;
@@ -698,6 +699,7 @@ export default function useDerivBot() {
             level = 0;
             statsRef.current.cycleProfit = 0;
             statsRef.current.amortizationDebt = 0; // Assume o loss do ciclo
+            statsRef.current.fixedInstallment = 0; // Limpa a parcela fixa
             statsRef.current.cooldownTicks = 60; // Pausa longa
             statsRef.current.diagnostic.radarMessage = '⚠️ Limite de Amortização atingido! Pausa de segurança pesada (60 ticks).';
           } else {
@@ -708,7 +710,12 @@ export default function useDerivBot() {
             statsRef.current.ghostEntryWait = false;
             statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado. Amortizando dívida...';
 
-            const installment = statsRef.current.amortizationDebt / 10;
+            // Cria uma parcela fixa baseada na dívida dividida por 3 (Recuperação Rápida)
+            if (!statsRef.current.fixedInstallment || statsRef.current.amortizationDebt > (statsRef.current.fixedInstallment * 5)) {
+              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / 3;
+            }
+            
+            const installment = Math.min(statsRef.current.fixedInstallment, statsRef.current.amortizationDebt);
             nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
           }
         
@@ -725,13 +732,17 @@ export default function useDerivBot() {
           if (statsRef.current.amortizationDebt <= 0.02) {
             // Dívida zerada!
             statsRef.current.amortizationDebt = 0;
+            statsRef.current.fixedInstallment = 0; // Limpa a parcela fixa
             nextStake = configRef.current.initialStake;
             level = 0;
             statsRef.current.cycleProfit = 0;
             setStatus('Dívida amortizada! Retornando ao lucro padrão.');
           } else {
-            // Ainda tem dívida, recalcula a parcela mantendo a divisão por 10 para suavizar
-            const installment = statsRef.current.amortizationDebt / 10;
+            // Usa a parcela fixa para abater a dívida de forma linear (sem cair em assíntota)
+            if (!statsRef.current.fixedInstallment) {
+              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / 3;
+            }
+            const installment = Math.min(statsRef.current.fixedInstallment, statsRef.current.amortizationDebt);
             nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
             setStatus(`Amortizando... Resta $${statsRef.current.amortizationDebt.toFixed(2)}`);
           }
@@ -740,6 +751,7 @@ export default function useDerivBot() {
           nextStake = configRef.current.initialStake;
           level = 0;
           statsRef.current.cycleProfit = 0;
+          statsRef.current.fixedInstallment = 0; // Limpa a parcela fixa
         }
       }
     } else if (rm === 'hibrido') {
@@ -751,6 +763,7 @@ export default function useDerivBot() {
         nextStake = configRef.current.initialStake;
         level = 0;
         statsRef.current.cycleProfit = 0;
+        statsRef.current.fixedInstallment = 0; // Limpa a parcela fixa
       } else {
         // Está no prejuízo neste ciclo.
         if (!won) {
@@ -760,6 +773,7 @@ export default function useDerivBot() {
             nextStake = configRef.current.initialStake;
             level = 0;
             statsRef.current.cycleProfit = 0;
+            statsRef.current.fixedInstallment = 0; // Limpa a parcela fixa
             statsRef.current.cooldownTicks = 60;
             statsRef.current.diagnostic.radarMessage = '⚠️ Limite Híbrido atingido! Pausa de segurança pesada (60 ticks).';
           } else {
@@ -780,15 +794,25 @@ export default function useDerivBot() {
               nextStake = (debt + baseProfit) / estimatedPayoutRatio;
             } else {
               statsRef.current.diagnostic.radarMessage = `👻 Ghost Mode Ativado. Amortização Híbrida (Nível ${level})...`;
-              const installment = debt / 5;
+              
+              // Cria uma parcela fixa dividindo a dívida por 3 apenas na primeira vez que entra neste bloco
+              if (!statsRef.current.fixedInstallment || debt > (statsRef.current.fixedInstallment * 5)) {
+                statsRef.current.fixedInstallment = debt / 3;
+              }
+              const installment = Math.min(statsRef.current.fixedInstallment, debt);
               nextStake = (installment + baseProfit) / estimatedPayoutRatio;
             }
           }
         } else {
-          // Se ganhou mas ainda está no prejuízo, recalcula a próxima parcela
+          // Se ganhou mas ainda está no prejuízo, usa a parcela fixa previamente calculada
           const baseProfit = configRef.current.initialStake * estimatedPayoutRatio;
           const debt = Math.abs(statsRef.current.cycleProfit);
-          const installment = debt / 5;
+          
+          if (!statsRef.current.fixedInstallment) {
+            statsRef.current.fixedInstallment = debt / 3;
+          }
+          const installment = Math.min(statsRef.current.fixedInstallment, debt);
+          
           nextStake = (installment + baseProfit) / estimatedPayoutRatio;
           setStatus(`Amortização Híbrida: Resta $${debt.toFixed(2)}`);
         }
@@ -839,6 +863,7 @@ export default function useDerivBot() {
             level = 0;
             nextStake = configRef.current.initialStake;
             statsRef.current.cycleProfit = 0;
+            statsRef.current.fixedInstallment = 0;
           }
         }
       }
