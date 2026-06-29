@@ -838,8 +838,13 @@ export default function useDerivBot() {
     } else if (statsRef.current.guaranteedFloor > 0 && currentTotalProfit < statsRef.current.guaranteedFloor) {
       // Bateu no Trailing Stop (Piso Garantido)
       stopBot();
-      setStatus(`Piso Garantido Atingido! (Lucro protegido: $${statsRef.current.guaranteedFloor.toFixed(2)})`);
-      playAlertSound('win');
+      if (currentTotalProfit >= 0) {
+        setStatus(`Piso de Lucro Atingido! (Saída em: $${currentTotalProfit.toFixed(2)})`);
+        playAlertSound('win');
+      } else {
+        setStatus(`Devolveu o lucro! Parada de Segurança (Final: $${currentTotalProfit.toFixed(2)})`);
+        playAlertSound('loss');
+      }
     } else {
       if (status !== 'Resfriando após Sequência de Vitórias...') {
         setStatus('Buscando trades...');
