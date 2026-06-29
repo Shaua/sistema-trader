@@ -412,7 +412,7 @@ export default function useDerivBot() {
 
     // Atualiza Radar de Ondas (últimos 50 ticks) SEMPRE, mesmo com operação aberta, para não perder o tracking do mercado.
     statsRef.current.recentDigits.push(lastDigit);
-    if (statsRef.current.recentDigits.length > 50) {
+    if (statsRef.current.recentDigits.length > 100) {
       statsRef.current.recentDigits.shift();
     }
 
@@ -428,20 +428,28 @@ export default function useDerivBot() {
       const isVirtualLossNow = lastDigit === 8 || lastDigit === 9;
       
       if (!isVirtualLossNow) {
-        // Ghost Win! A tempestade passou, desliga o ghost mode.
-        statsRef.current.ghostMode = false;
-        statsRef.current.virtualLossCount = 0;
-        statsRef.current.diagnostic.radarMessage = 'Ghost Trade Win! Retornando ao mercado real...';
-        setStats({ ...statsRef.current });
-        setStatus('Buscando trades reais...');
+        statsRef.current.ghostConsecutiveWins = (statsRef.current.ghostConsecutiveWins || 0) + 1;
+        
+        if (statsRef.current.ghostConsecutiveWins >= 2) {
+          statsRef.current.ghostMode = false;
+          statsRef.current.virtualLossCount = 0;
+          statsRef.current.ghostConsecutiveWins = 0;
+          statsRef.current.diagnostic.radarMessage = 'Ghost Win Duplo Confirmado! Retornando ao mercado real...';
+          setStats({ ...statsRef.current });
+          setStatus('Buscando trades reais...');
+        } else {
+          statsRef.current.diagnostic.radarMessage = 'Ghost Win (1/2). Aguardando confirmação...';
+          setStats({ ...statsRef.current });
+          setStatus('Ghost Mode: Confirmando tendência...');
+        }
       } else {
-        // Ghost Loss! O mercado ainda está ruim. Continua no Ghost Mode.
+        statsRef.current.ghostConsecutiveWins = 0;
         statsRef.current.virtualLossCount = 0;
-        statsRef.current.diagnostic.radarMessage = 'Ghost Trade Loss! O mercado continua ruim. Evitamos um loss real.';
+        statsRef.current.diagnostic.radarMessage = 'Ghost Loss! O mercado continua ruim. Evitamos um loss real.';
         setStats({ ...statsRef.current });
         setStatus('Ghost Trade Loss. Aguardando novo ciclo fantasma...');
       }
-      return; // Já consumiu este tick para resolver o fantasma
+      return; 
     }
     
     // 1. Resfriamento Pós-Loss
@@ -452,14 +460,21 @@ export default function useDerivBot() {
       return; // Ignora o mercado durante o resfriamento
     }
 
-    // 2. Radar de Ondas (Análise de Frequência Global)
-    if (statsRef.current.recentDigits.length === 50) {
-      const highDigitsCount = statsRef.current.recentDigits.filter(d => d === 8 || d === 9).length;
-      if (highDigitsCount >= 15) { // 30% ou mais de números 8 e 9 (Mercado Quente/Ruim)
+    // 2. Radar de Ondas (Análise de Frequência Global - 50 e 100 Ticks)
+    if (statsRef.current.recentDigits.length >= 50) {
+      const last50 = statsRef.current.recentDigits.slice(-50);
+      const highDigits50 = last50.filter(d => d === 8 || d === 9).length;
+      
+      let highDigits100 = 0;
+      if (statsRef.current.recentDigits.length === 100) {
+        highDigits100 = statsRef.current.recentDigits.filter(d => d === 8 || d === 9).length;
+      }
+
+      if (highDigits50 >= 15 || highDigits100 >= 26) { // 30% em 50, ou 26% em 100
         statsRef.current.virtualLossCount = 0;
         setStats({ ...statsRef.current });
-        if (status !== 'Onda de anomalia detectada. Pausando...') setStatus('Onda de anomalia detectada. Pausando...');
-        return; // Bloqueia entradas
+        if (status !== 'Onda longa de anomalia detectada. Pausando...') setStatus('Onda longa de anomalia detectada. Pausando...');
+        return; 
       }
     }
 
@@ -471,8 +486,10 @@ export default function useDerivBot() {
     // Aumenta a exigência gráfica nos Martingales para TODOS os modos
     if (statsRef.current.martingaleLevel === 1) {
       targetLosses += 1; 
-    } else if (statsRef.current.martingaleLevel >= 2) {
+    } else if (statsRef.current.martingaleLevel === 2) {
       targetLosses += 2;
+    } else if (statsRef.current.martingaleLevel >= 3) {
+      targetLosses += 3; // Nível extremo, exige máxima confirmação gráfica
     }
 
     statsRef.current.diagnostic.targetLosses = targetLosses;
@@ -674,18 +691,26 @@ export default function useDerivBot() {
       if (!won) {
         // Adiciona a perda exata à dívida
         statsRef.current.amortizationDebt += Math.abs(profit);
-        level += 1;
-        
-        let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
-        statsRef.current.cooldownTicks = cooldown;
-        
-        statsRef.current.ghostMode = true;
-        statsRef.current.ghostEntryWait = false;
-        statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado. Amortizando dívida...';
+          level += 1;
+          
+          if (level > maxLevel) {
+            nextStake = configRef.current.initialStake;
+            level = 0;
+            statsRef.current.cycleProfit = 0;
+            statsRef.current.amortizationDebt = 0; // Assume o loss do ciclo
+            statsRef.current.cooldownTicks = 60; // Pausa longa
+            statsRef.current.diagnostic.radarMessage = '⚠️ Limite de Amortização atingido! Pausa de segurança pesada (60 ticks).';
+          } else {
+            let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
+            statsRef.current.cooldownTicks = cooldown;
+            
+            statsRef.current.ghostMode = true;
+            statsRef.current.ghostEntryWait = false;
+            statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado. Amortizando dívida...';
 
-        // Calcula a nova aposta diluída em 10 parcelas
-        const installment = statsRef.current.amortizationDebt / 10;
-        nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
+            const installment = statsRef.current.amortizationDebt / 10;
+            nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
+          }
         
       } else {
         if (statsRef.current.amortizationDebt > 0) {
@@ -731,27 +756,33 @@ export default function useDerivBot() {
         if (!won) {
           level += 1;
           
-          let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
-          if (configRef.current.mode === 'veloz' && level > 0) {
-            cooldown = 15;
-          }
-          statsRef.current.cooldownTicks = cooldown;
-          
-          statsRef.current.ghostMode = true;
-          statsRef.current.ghostEntryWait = false;
-          
-          const baseProfit = configRef.current.initialStake * estimatedPayoutRatio;
-          const debt = Math.abs(statsRef.current.cycleProfit);
-
-          if (level === 1) {
-            // Nível 1: Martingale Agressivo Rápido
-            statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para Martingale Agressivo (Nível 1).';
-            nextStake = (debt + baseProfit) / estimatedPayoutRatio;
+          if (level > maxLevel) {
+            nextStake = configRef.current.initialStake;
+            level = 0;
+            statsRef.current.cycleProfit = 0;
+            statsRef.current.cooldownTicks = 60;
+            statsRef.current.diagnostic.radarMessage = '⚠️ Limite Híbrido atingido! Pausa de segurança pesada (60 ticks).';
           } else {
-            // Nível 2 em diante: Amortização Suave em 5 parcelas
-            statsRef.current.diagnostic.radarMessage = `👻 Ghost Mode Ativado. Amortização Híbrida (Nível ${level})...`;
-            const installment = debt / 5;
-            nextStake = (installment + baseProfit) / estimatedPayoutRatio;
+            let cooldown = configRef.current.mode === 'veloz' ? 8 : 25;
+            if (configRef.current.mode === 'veloz' && level > 0) {
+              cooldown = 15;
+            }
+            statsRef.current.cooldownTicks = cooldown;
+            
+            statsRef.current.ghostMode = true;
+            statsRef.current.ghostEntryWait = false;
+            
+            const baseProfit = configRef.current.initialStake * estimatedPayoutRatio;
+            const debt = Math.abs(statsRef.current.cycleProfit);
+
+            if (level === 1) {
+              statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado para Martingale Agressivo (Nível 1).';
+              nextStake = (debt + baseProfit) / estimatedPayoutRatio;
+            } else {
+              statsRef.current.diagnostic.radarMessage = `👻 Ghost Mode Ativado. Amortização Híbrida (Nível ${level})...`;
+              const installment = debt / 5;
+              nextStake = (installment + baseProfit) / estimatedPayoutRatio;
+            }
           }
         } else {
           // Se ganhou mas ainda está no prejuízo, recalcula a próxima parcela
@@ -796,6 +827,8 @@ export default function useDerivBot() {
             nextStake = configRef.current.initialStake;
             level = 0;
             statsRef.current.cycleProfit = 0;
+            statsRef.current.cooldownTicks = 60;
+            statsRef.current.diagnostic.radarMessage = '⚠️ Limite de Martingale atingido! Pausa de segurança pesada (60 ticks).';
           }
         } else {
           // Se ganhou a operação, mas ainda tem prejuízo no ciclo:
