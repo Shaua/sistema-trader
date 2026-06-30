@@ -197,7 +197,6 @@ export default function useDerivBot() {
         workerRef.current.terminate();
         workerRef.current = null;
       }
-      if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
       if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
       ws.current.close();
       ws.current = null;
@@ -303,12 +302,6 @@ export default function useDerivBot() {
       worker.onmessage = () => {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ ping: 1 }));
-          if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
-          socket.pongTimeout = setTimeout(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.close(); 
-            }
-          }, 10000); 
         }
       };
       
@@ -322,7 +315,6 @@ export default function useDerivBot() {
       const data = JSON.parse(msg.data);
       
       if (data.msg_type === 'ping') {
-        if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
         return;
       }
       
@@ -374,7 +366,6 @@ export default function useDerivBot() {
         workerRef.current.terminate();
         workerRef.current = null;
       }
-      if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
       if (socket.authTimeout) clearTimeout(socket.authTimeout);
       if (isComponentMounted.current) {
         setStatus('Desconectado. Reconectando...');
@@ -395,7 +386,6 @@ export default function useDerivBot() {
           workerRef.current.terminate();
           workerRef.current = null;
         }
-        if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
         if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
         ws.current.close();
       }
