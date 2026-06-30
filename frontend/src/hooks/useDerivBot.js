@@ -111,6 +111,7 @@ export default function useDerivBot() {
   const statusRef = useRef(status);
   const wakeLockRef = useRef(null);
   const keepAliveAudioRef = useRef(null);
+  const tradeTimeoutRef = useRef(null);
 
   useEffect(() => {
     configRef.current = config;
@@ -682,7 +683,8 @@ export default function useDerivBot() {
     }));
 
     // Sistema de segurança: Se a operação travar por qualquer motivo na Deriv (delay, erro de rede), destrava após 15s
-    setTimeout(() => {
+    if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
+    tradeTimeoutRef.current = setTimeout(() => {
       if (isTradingRef.current) {
         isTradingRef.current = false;
         if (isRunningRef.current) {
@@ -704,6 +706,11 @@ export default function useDerivBot() {
     if (processedContractsRef.current.size > 100) {
       const iterator = processedContractsRef.current.values();
       processedContractsRef.current.delete(iterator.next().value);
+    }
+
+    if (tradeTimeoutRef.current) {
+      clearTimeout(tradeTimeoutRef.current);
+      tradeTimeoutRef.current = null;
     }
 
     isTradingRef.current = false;
@@ -994,7 +1001,7 @@ export default function useDerivBot() {
       setStatus(`Piso de Lucro Atingido! (Saída em: $${currentTotalProfit.toFixed(2)})`);
       playAlertSound('win');
     } else {
-      if (status !== 'Resfriando após Sequência de Vitórias...') {
+      if (isRunningRef.current && status !== 'Resfriando após Sequência de Vitórias...') {
         setStatus('Buscando trades...');
       }
     }
