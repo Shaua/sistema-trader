@@ -206,7 +206,8 @@ router.get('/connection-info', authMiddleware, async (req, res) => {
 
     const axios = require('axios');
     const accountsRes = await axios.get('https://api.derivws.com/trading/v1/options/accounts', {
-      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` },
+      timeout: 10000
     });
     
     const accounts = accountsRes.data.data;
@@ -229,7 +230,8 @@ router.get('/connection-info', authMiddleware, async (req, res) => {
     }
 
     const otpRes = await axios.post(`https://api.derivws.com/trading/v1/options/accounts/${targetAccount.account_id}/otp`, {}, {
-      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` }
+      headers: { 'Deriv-App-ID': appId, 'Authorization': `Bearer ${token}` },
+      timeout: 10000
     });
 
     res.json({ 
