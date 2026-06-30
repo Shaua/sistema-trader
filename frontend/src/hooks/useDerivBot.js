@@ -112,6 +112,7 @@ export default function useDerivBot() {
   const wakeLockRef = useRef(null);
   const keepAliveAudioRef = useRef(null);
   const tradeTimeoutRef = useRef(null);
+  const workerRef = useRef(null);
 
   useEffect(() => {
     configRef.current = config;
@@ -191,7 +192,11 @@ export default function useDerivBot() {
       ws.current.onerror = null;
       ws.current.onmessage = null;
       ws.current.onopen = null;
-      if (ws.current.pingInterval) clearInterval(ws.current.pingInterval);
+      if (workerRef.current) {
+        workerRef.current.postMessage({ command: 'stop' });
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
       if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
       if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
       ws.current.close();
@@ -278,19 +283,38 @@ export default function useDerivBot() {
         }
       }, 15000);
       
+      // Inline Web Worker para Ping (Evita throttling de aba em background)
+      const workerCode = `
+        let intervalId;
+        self.onmessage = function(e) {
+          if (e.data.command === 'start') {
+            intervalId = setInterval(function() {
+              self.postMessage('ping');
+            }, e.data.interval);
+          } else if (e.data.command === 'stop') {
+            clearInterval(intervalId);
+          }
+        };
+      `;
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const worker = new Worker(URL.createObjectURL(blob));
+      workerRef.current = worker;
+      
+      worker.onmessage = () => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ ping: 1 }));
+          if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
+          socket.pongTimeout = setTimeout(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.close(); 
+            }
+          }, 10000); 
+        }
+      };
+      
       setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN) return;
-        socket.pingInterval = setInterval(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ ping: 1 }));
-            if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
-            socket.pongTimeout = setTimeout(() => {
-              if (socket.readyState === WebSocket.OPEN) {
-                socket.close(); 
-              }
-            }, 10000); 
-          }
-        }, 30000); 
+        worker.postMessage({ command: 'start', interval: 30000 });
       }, 5000);
     };
 
@@ -345,7 +369,11 @@ export default function useDerivBot() {
     };
 
     socket.onclose = () => {
-      if (socket.pingInterval) clearInterval(socket.pingInterval);
+      if (workerRef.current) {
+        workerRef.current.postMessage({ command: 'stop' });
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
       if (socket.pongTimeout) clearTimeout(socket.pongTimeout);
       if (socket.authTimeout) clearTimeout(socket.authTimeout);
       if (isComponentMounted.current) {
@@ -362,7 +390,11 @@ export default function useDerivBot() {
       isComponentMounted.current = false;
       if (ws.current) {
         ws.current.onclose = null;
-        if (ws.current.pingInterval) clearInterval(ws.current.pingInterval);
+        if (workerRef.current) {
+          workerRef.current.postMessage({ command: 'stop' });
+          workerRef.current.terminate();
+          workerRef.current = null;
+        }
         if (ws.current.pongTimeout) clearTimeout(ws.current.pongTimeout);
         if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
         ws.current.close();
