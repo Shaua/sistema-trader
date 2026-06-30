@@ -273,18 +273,18 @@ export default function useDerivBot() {
     socket.onopen = () => {
       setStatus('Conectado. Autorizando...');
       
+      socket.authTimeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        }
+      }, 15000);
+      
       if (!isNewFlow) {
         socket.send(JSON.stringify({ authorize: token }));
       } else {
         // No fluxo novo (OTP), a conexão já abre autenticada
         onAuthSuccess(initialBalance, initialCurrency);
       }
-      
-      socket.authTimeout = setTimeout(() => {
-        if (socket.readyState === WebSocket.OPEN && !authorized) {
-          socket.close();
-        }
-      }, 15000);
       
       // Inline Web Worker para Ping (Evita throttling de aba em background)
       const workerCode = `
