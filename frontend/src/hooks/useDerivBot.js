@@ -179,8 +179,13 @@ export default function useDerivBot() {
         video.autoplay = true;
         video.loop = true;
         video.style.position = 'absolute';
-        video.style.opacity = '0';
+        video.style.bottom = '0';
+        video.style.right = '0';
+        video.style.width = '1px';
+        video.style.height = '1px';
+        video.style.opacity = '0.01'; // Maior que 0 para o Chrome considerar renderizado
         video.style.pointerEvents = 'none';
+        video.style.zIndex = '9999';
         
         document.body.appendChild(video);
         video.play().catch(e => console.log('Video keep-alive prevent:', e));
