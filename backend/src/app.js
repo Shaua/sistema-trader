@@ -13,6 +13,7 @@ const statsRoutes = require('./routes/stats');
 const reportsRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const derivRoutes = require('./routes/deriv');
+const telegramRoutes = require('./routes/telegram');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/deriv', derivRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

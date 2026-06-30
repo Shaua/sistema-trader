@@ -1054,19 +1054,23 @@ export default function useDerivBot() {
       stopBot();
       setStatus(`Stop Loss Preventivo! Evitou entrada de $${nextStake.toFixed(2)}`);
       playAlertSound('loss');
+      api.post('/telegram/notify', { message: `🚨 *STOP LOSS PREVENTIVO ATINGIDO* 🚨\n\nLucro Atual: *$${currentTotalProfit.toFixed(2)}*\nAposta Evitada: *$${nextStake.toFixed(2)}*\n\nO robô foi pausado automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
     } else if (currentTotalProfit >= configRef.current.targetProfit) {
       stopBot();
       setStatus('Meta de Lucro Atingida!');
       playAlertSound('win');
+      api.post('/telegram/notify', { message: `✅ *META DE LUCRO ATINGIDA!* ✅\n\nLucro Final: *$${currentTotalProfit.toFixed(2)}*\nMeta: *$${configRef.current.targetProfit.toFixed(2)}*\n\nParabéns! O robô foi pausado automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
     } else if (currentTotalProfit <= -configRef.current.stopLoss) {
       stopBot();
       setStatus('Stop Loss Atingido!');
       playAlertSound('loss');
+      api.post('/telegram/notify', { message: `❌ *STOP LOSS ATINGIDO* ❌\n\nPrejuízo Final: *$${currentTotalProfit.toFixed(2)}*\nLimite: *$${configRef.current.stopLoss.toFixed(2)}*\n\nO robô foi pausado automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
     } else if (statsRef.current.guaranteedFloor > 0 && currentTotalProfit < statsRef.current.guaranteedFloor && currentTotalProfit > 0) {
       // Bateu no Trailing Stop (Piso Garantido), mas só sai se ainda estiver no lucro
       stopBot();
       setStatus(`Piso de Lucro Atingido! (Saída em: $${currentTotalProfit.toFixed(2)})`);
       playAlertSound('win');
+      api.post('/telegram/notify', { message: `🛡️ *TRAILING STOP ATIVADO* 🛡️\n\nPiso de Lucro Garantido Atingido!\nLucro Final: *$${currentTotalProfit.toFixed(2)}*\n\nO robô garantiu parte do lucro e foi pausado automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
     } else {
       if (isRunningRef.current && status !== 'Resfriando após Sequência de Vitórias...') {
         setStatus('Buscando trades...');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link2, RefreshCw, AlertCircle, CheckCircle, Key, Activity } from 'lucide-react'
+import { Link2, RefreshCw, AlertCircle, CheckCircle, Key, Activity, Send } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import api from '../lib/api'
@@ -11,6 +11,10 @@ export default function Integrations() {
     deriv_token: '',
     deriv_demo_token: '',
     deriv_app_id: ''
+  })
+  const [telegramTokens, setTelegramTokens] = useState({
+    telegram_bot_token: '',
+    telegram_chat_id: ''
   })
   const [status, setStatus] = useState('disconnected') // 'disconnected', 'validating', 'connected'
   const [syncing, setSyncing] = useState(false)
@@ -27,6 +31,10 @@ export default function Integrations() {
         deriv_app_id: profile.deriv_app_id || ''
       })
       if (profile.deriv_token) setStatus('connected')
+      setTelegramTokens({
+        telegram_bot_token: profile.telegram_bot_token || '',
+        telegram_chat_id: profile.telegram_chat_id || ''
+      })
     }
   }, [profile])
 
@@ -47,6 +55,40 @@ export default function Integrations() {
       setSuccessMsg('Tokens salvos com sucesso!')
     } catch (err) {
       setStatus('disconnected')
+      setError(err.response?.data?.error || err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveTelegram = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccessMsg('')
+    
+    try {
+      await api.post('/telegram/config', telegramTokens)
+      updateProfile({ 
+        telegram_bot_token: telegramTokens.telegram_bot_token, 
+        telegram_chat_id: telegramTokens.telegram_chat_id
+      })
+      setSuccessMsg('Configurações do Telegram salvas com sucesso!')
+    } catch (err) {
+      setError(err.response?.data?.error || err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTestTelegram = async () => {
+    setLoading(true)
+    setError('')
+    setSuccessMsg('')
+    try {
+      await api.post('/telegram/notify', { message: '🚀 Teste de conexão do Sistema Trader bem sucedido!' })
+      setSuccessMsg('Mensagem de teste enviada com sucesso!')
+    } catch (err) {
       setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
@@ -188,6 +230,61 @@ export default function Integrations() {
               </button>
             </div>
           )}
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 16 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(56, 189, 248, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Send size={24} style={{ color: '#38bdf8' }} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Integração Telegram</h2>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)' }}>Receba notificações do robô no seu Telegram</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveTelegram}>
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Key size={14} /> Telegram Bot Token
+              </label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="Ex: 123456789:ABCdefGHIjklMNOpqrSTUvwxYZ"
+                value={telegramTokens.telegram_bot_token}
+                onChange={(e) => setTelegramTokens({...telegramTokens, telegram_bot_token: e.target.value})}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Crie um bot falando com o <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{color: 'var(--color-accent)'}}>@BotFather</a> no Telegram.
+              </p>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Key size={14} /> Telegram Chat ID
+              </label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Ex: 123456789"
+                value={telegramTokens.telegram_chat_id}
+                onChange={(e) => setTelegramTokens({...telegramTokens, telegram_chat_id: e.target.value})}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                Descubra seu Chat ID enviando uma mensagem para <a href="https://t.me/userinfobot" target="_blank" rel="noreferrer" style={{color: 'var(--color-accent)'}}>@userinfobot</a>.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={loading}>
+                {loading ? 'Salvando...' : 'Salvar Telegram'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={handleTestTelegram} disabled={loading || !telegramTokens.telegram_bot_token || !telegramTokens.telegram_chat_id}>
+                Testar Alerta
+              </button>
+            </div>
+          </form>
         </motion.div>
 
         <motion.div
