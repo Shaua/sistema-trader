@@ -217,9 +217,13 @@ export default function useDerivBot() {
     let isNewFlow = false;
 
     try {
-      const { data } = await api.get('/deriv/connection-info', {
-        headers: { 'x-account-type': accountType }
-      });
+      const response = await Promise.race([
+        api.get('/deriv/connection-info', {
+          headers: { 'x-account-type': accountType }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de conexão com o backend. Tente novamente.')), 10000))
+      ]);
+      const { data } = response;
       wsUrl = data.wsUrl;
       isNewFlow = data.isNewFlow;
       isNewFlowRef.current = isNewFlow;
@@ -441,8 +445,8 @@ export default function useDerivBot() {
       statsRef.current.lastQuote = tickData.quote;
     }
 
-    // Se o preço ficar EXATAMENTE igual por 8 ticks seguidos (o que é impossível em Volatility), a API travou.
-    if (statsRef.current.frozenTicks >= 8) {
+    // Se o preço ficar EXATAMENTE igual por 60 ticks seguidos (anomalia severa), a API travou.
+    if (statsRef.current.frozenTicks >= 60) {
       statsRef.current.frozenTicks = 0; // reseta
       setStatus('Sinal da Deriv congelado. Forçando reconexão...');
       if (ws.current) {
