@@ -158,8 +158,36 @@ export default function useDerivBot() {
       
       oscillator.start();
       keepAliveAudioRef.current = { audioCtx, oscillator };
+
+      // 2. Truque de Vídeo Oculto (Canvas MediaStream)
+      // Força o navegador a tratar a aba como uma transmissão de vídeo ativa,
+      // prevenindo throttling severo e suspensão no Chrome/Edge.
+      if (!keepAliveAudioRef.current.video) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, 1, 1);
+        
+        // 1 frame por segundo é suficiente para manter ativo
+        const stream = canvas.captureStream(1); 
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.style.position = 'absolute';
+        video.style.opacity = '0';
+        video.style.pointerEvents = 'none';
+        
+        document.body.appendChild(video);
+        video.play().catch(e => console.log('Video keep-alive prevent:', e));
+        keepAliveAudioRef.current.video = video;
+      }
     } catch (err) {
-      console.log('Audio Keep-Alive failed:', err);
+      console.log('Keep-Alive failed:', err);
     }
   };
 
@@ -169,6 +197,14 @@ export default function useDerivBot() {
         keepAliveAudioRef.current.oscillator.stop();
         keepAliveAudioRef.current.audioCtx.close();
       } catch (e) {}
+      
+      if (keepAliveAudioRef.current.video) {
+        try {
+          keepAliveAudioRef.current.video.pause();
+          keepAliveAudioRef.current.video.remove();
+        } catch (e) {}
+      }
+      
       keepAliveAudioRef.current = null;
     }
   };
