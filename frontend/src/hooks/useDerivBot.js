@@ -352,7 +352,7 @@ export default function useDerivBot() {
       
       setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN) return;
-        worker.postMessage({ command: 'start', interval: 30000 });
+        worker.postMessage({ command: 'start', interval: 10000 });
       }, 5000);
     };
 
