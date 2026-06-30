@@ -108,11 +108,13 @@ export default function useDerivBot() {
   const isTradingRef = useRef(false);
   const isNewFlowRef = useRef(false);
   const connectionIdRef = useRef(0);
+  const statusRef = useRef(status);
 
   useEffect(() => {
     configRef.current = config;
     isRunningRef.current = isRunning;
-  }, [config, isRunning]);
+    statusRef.current = status;
+  }, [config, isRunning, status]);
 
   const connect = useCallback(async () => {
     const currentConnectionId = Date.now() + Math.random();
@@ -405,7 +407,7 @@ export default function useDerivBot() {
           statsRef.current.virtualLossCount = 0;
           statsRef.current.diagnostic.radarMessage = `⚠️ Spike detectado! (${diff.toFixed(pipSize)}). Resfriando...`;
           setStats({ ...statsRef.current });
-          if (status !== 'Alta volatilidade detectada. Pausando...') setStatus('Alta volatilidade detectada. Pausando...');
+          if (statusRef.current !== 'Alta volatilidade detectada. Pausando...') setStatus('Alta volatilidade detectada. Pausando...');
         }
       }
     }
@@ -457,7 +459,7 @@ export default function useDerivBot() {
     if (statsRef.current.cooldownTicks > 0) {
       statsRef.current.cooldownTicks -= 1;
       setStats({ ...statsRef.current });
-      if (status !== 'Resfriando após Loss...') setStatus('Resfriando após Loss...');
+      if (statusRef.current !== 'Resfriando após Loss...') setStatus('Resfriando após Loss...');
       return; // Ignora o mercado durante o resfriamento
     }
 
@@ -474,7 +476,7 @@ export default function useDerivBot() {
       if (highDigits50 >= 15 || highDigits100 >= 26) { // 30% em 50, ou 26% em 100
         statsRef.current.virtualLossCount = 0;
         setStats({ ...statsRef.current });
-        if (status !== 'Onda longa de anomalia detectada. Pausando...') setStatus('Onda longa de anomalia detectada. Pausando...');
+        if (statusRef.current !== 'Onda longa de anomalia detectada. Pausando...') setStatus('Onda longa de anomalia detectada. Pausando...');
         return; 
       }
     }
@@ -511,14 +513,14 @@ export default function useDerivBot() {
         statsRef.current.virtualLossCount = 0;
         statsRef.current.diagnostic.radarMessage = `Micro-Onda bloqueou! Tem ${highInLast10} ruins nos ultimos 10 ticks (limite ${allowedMicroLosses})`;
         setStats({ ...statsRef.current });
-        if (status !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
+        if (statusRef.current !== 'Micro-Onda detectada. Pausando...') setStatus('Micro-Onda detectada. Pausando...');
         return; // Bloqueia entradas
       }
     }
 
     statsRef.current.diagnostic.radarMessage = 'Gráfico limpo. Rastreador ativado.';
 
-    if (status === 'Resfriando após Loss...' || status === 'Onda de anomalia detectada. Pausando...' || status === 'Micro-Onda detectada. Pausando...' || status === 'Filtro Veloz: Ignorando cluster perigoso...') {
+    if (statusRef.current === 'Resfriando após Loss...' || statusRef.current === 'Onda longa de anomalia detectada. Pausando...' || statusRef.current === 'Micro-Onda detectada. Pausando...' || statusRef.current === 'Filtro Veloz: Ignorando cluster perigoso...' || statusRef.current === 'Reconectado! Buscando trades...') {
       setStatus('Buscando trades...');
     }
 
@@ -547,7 +549,7 @@ export default function useDerivBot() {
               statsRef.current.virtualLossCount = 0;
               statsRef.current.diagnostic.radarMessage = 'Aviso: Cluster perigoso detectado no tick anterior. Abortando...';
               setStats({ ...statsRef.current });
-              if (status !== 'Filtro Veloz: Ignorando cluster perigoso...') setStatus('Filtro Veloz: Ignorando cluster perigoso...');
+              if (statusRef.current !== 'Filtro Veloz: Ignorando cluster perigoso...') setStatus('Filtro Veloz: Ignorando cluster perigoso...');
               return;
             }
           }
