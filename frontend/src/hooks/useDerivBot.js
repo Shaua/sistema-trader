@@ -147,7 +147,11 @@ export default function useDerivBot() {
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       
-      gainNode.gain.value = 0; // Mute completely
+      // Truque: Frequência ultrassônica (20kHz) e volume 1% (não audível)
+      // Se for 0 absoluto, os navegadores modernos ignoram e suspendem a aba.
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 20000; 
+      gainNode.gain.value = 0.01; 
       
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
