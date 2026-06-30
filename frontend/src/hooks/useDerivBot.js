@@ -109,12 +109,77 @@ export default function useDerivBot() {
   const isNewFlowRef = useRef(false);
   const connectionIdRef = useRef(0);
   const statusRef = useRef(status);
+  const wakeLockRef = useRef(null);
+  const keepAliveAudioRef = useRef(null);
 
   useEffect(() => {
     configRef.current = config;
     isRunningRef.current = isRunning;
     statusRef.current = status;
   }, [config, isRunning, status]);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      }
+    } catch (err) {
+      console.log('Wake Lock request failed:', err);
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current !== null) {
+      wakeLockRef.current.release().then(() => {
+        wakeLockRef.current = null;
+      }).catch(() => {});
+    }
+  };
+
+  const startAudioKeepAlive = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const audioCtx = new AudioContext();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      gainNode.gain.value = 0; // Mute completely
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.start();
+      keepAliveAudioRef.current = { audioCtx, oscillator };
+    } catch (err) {
+      console.log('Audio Keep-Alive failed:', err);
+    }
+  };
+
+  const stopAudioKeepAlive = () => {
+    if (keepAliveAudioRef.current) {
+      try {
+        keepAliveAudioRef.current.oscillator.stop();
+        keepAliveAudioRef.current.audioCtx.close();
+      } catch (e) {}
+      keepAliveAudioRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isRunningRef.current) {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+      stopAudioKeepAlive();
+    };
+  }, []);
 
   const connect = useCallback(async () => {
     const currentConnectionId = Date.now() + Math.random();
@@ -337,6 +402,10 @@ export default function useDerivBot() {
     // Reset trades for new session
     setTrades([]);
 
+    // Anti-Sleep / Keep-Alive
+    requestWakeLock();
+    startAudioKeepAlive();
+
     // Subscribe to ticks
     ws.current.send(JSON.stringify({
       ticks: configRef.current.market,
@@ -347,6 +416,9 @@ export default function useDerivBot() {
   const stopBot = () => {
     setIsRunning(false);
     setStatus('IA Parada.');
+    
+    releaseWakeLock();
+    stopAudioKeepAlive();
     
     // Unsubscribe from ticks
     ws.current.send(JSON.stringify({
