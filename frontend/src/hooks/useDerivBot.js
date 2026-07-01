@@ -947,6 +947,7 @@ export default function useDerivBot() {
     }
     
     const rm = configRef.current.riskManagement;
+    const fractionDivider = configRef.current.strategy === 'LOW' ? 5 : 3;
     const limitNiveis = configRef.current.maxMartingaleLevel || 3;
     const maxLevel = rm === 'hit_and_run' ? limitNiveis : rm === 'amortizacao' || rm === 'hibrido' ? limitNiveis : 1;
     const multiplier = rm === 'hit_and_run' ? 2.7 : rm === 'conservador' ? 2.7 : rm === 'otimizado' ? 5.5 : 6;
@@ -993,9 +994,9 @@ export default function useDerivBot() {
             statsRef.current.ghostEntryWait = false;
             statsRef.current.diagnostic.radarMessage = '👻 Ghost Mode Ativado. Amortizando dívida...';
 
-            // Cria uma parcela fixa baseada na dívida dividida por 3 (Recuperação Rápida)
-            if (!statsRef.current.fixedInstallment || statsRef.current.amortizationDebt > (statsRef.current.fixedInstallment * 5)) {
-              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / 3;
+            // Cria uma parcela fixa baseada na dívida dividida pela fração (Recuperação Rápida ou Suave)
+            if (!statsRef.current.fixedInstallment || statsRef.current.amortizationDebt > (statsRef.current.fixedInstallment * (fractionDivider + 2))) {
+              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / fractionDivider;
             }
             
             const installment = Math.min(statsRef.current.fixedInstallment, statsRef.current.amortizationDebt);
@@ -1023,7 +1024,7 @@ export default function useDerivBot() {
           } else {
             // Usa a parcela fixa para abater a dívida de forma linear (sem cair em assíntota)
             if (!statsRef.current.fixedInstallment) {
-              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / 3;
+              statsRef.current.fixedInstallment = statsRef.current.amortizationDebt / fractionDivider;
             }
             const installment = Math.min(statsRef.current.fixedInstallment, statsRef.current.amortizationDebt);
             nextStake = configRef.current.initialStake + (installment / estimatedPayoutRatio);
@@ -1078,9 +1079,9 @@ export default function useDerivBot() {
             } else {
               statsRef.current.diagnostic.radarMessage = `👻 Ghost Mode Ativado. Amortização Híbrida (Nível ${level})...`;
               
-              // Cria uma parcela fixa dividindo a dívida por 3 apenas na primeira vez que entra neste bloco
-              if (!statsRef.current.fixedInstallment || debt > (statsRef.current.fixedInstallment * 5)) {
-                statsRef.current.fixedInstallment = debt / 3;
+              // Cria uma parcela fixa dividindo a dívida pela fração apenas na primeira vez que entra neste bloco
+              if (!statsRef.current.fixedInstallment || debt > (statsRef.current.fixedInstallment * (fractionDivider + 2))) {
+                statsRef.current.fixedInstallment = debt / fractionDivider;
               }
               const installment = Math.min(statsRef.current.fixedInstallment, debt);
               nextStake = (installment + baseProfit) / estimatedPayoutRatio;
@@ -1092,7 +1093,7 @@ export default function useDerivBot() {
           const debt = Math.abs(statsRef.current.cycleProfit);
           
           if (!statsRef.current.fixedInstallment) {
-            statsRef.current.fixedInstallment = debt / 3;
+            statsRef.current.fixedInstallment = debt / fractionDivider;
           }
           const installment = Math.min(statsRef.current.fixedInstallment, debt);
           
