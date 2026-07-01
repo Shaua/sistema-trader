@@ -324,6 +324,19 @@ export default function useDerivBot() {
       socket.send(JSON.stringify({ proposal_open_contract: 1, subscribe: 1 }));
 
       if (isRunningRef.current) {
+        if (cyclePauseTimeoutRef.current) {
+          setStatus('Reconectado! Aguardando fim da pausa do ciclo...');
+          return;
+        }
+
+        if (configRef.current.enableSchedule && statsRef.current.activeScheduleId) {
+          const activeSchedule = configRef.current.schedules?.find(s => s.id === statsRef.current.activeScheduleId);
+          if (activeSchedule && statsRef.current.currentCycle > activeSchedule.maxCycles) {
+            setStatus('Reconectado! Limite de ciclos atingido.');
+            return;
+          }
+        }
+
         setStatus('Reconectado! Buscando trades...');
         isTradingRef.current = false;
         socket.send(JSON.stringify({
@@ -557,13 +570,8 @@ export default function useDerivBot() {
       let activeSchedule = null;
       for (const schedule of config.schedules) {
         if (currentTimeStr >= schedule.startTime && currentTimeStr <= schedule.endTime) {
-          // We only activate if cycles are not maxed out
-          if (!statsRef.current.activeScheduleId || statsRef.current.activeScheduleId === schedule.id) {
-             if (statsRef.current.currentCycle <= schedule.maxCycles) {
-               activeSchedule = schedule;
-               break;
-             }
-          }
+           activeSchedule = schedule;
+           break;
         }
       }
 
@@ -574,15 +582,27 @@ export default function useDerivBot() {
            statsRef.current.currentCycle = 1;
            statsRef.current.cycleSessionProfit = 0;
            setStats({ ...statsRef.current });
-           setStatus(`Sessão ${activeSchedule.startTime} iniciada! Buscando trades...`);
            
-           if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-             ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
-             setTimeout(() => {
+           if (statsRef.current.currentCycle <= activeSchedule.maxCycles) {
+               setStatus(`Sessão ${activeSchedule.startTime} iniciada! Buscando trades...`);
                if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-                 ws.current.send(JSON.stringify({ ticks: configRef.current.market, subscribe: 1 }));
+                 ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
+                 setTimeout(() => {
+                   if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+                     ws.current.send(JSON.stringify({ ticks: configRef.current.market, subscribe: 1 }));
+                   }
+                 }, 1000);
                }
-             }, 1000);
+           }
+        } else {
+           // Same schedule block as before
+           if (statsRef.current.currentCycle > activeSchedule.maxCycles) {
+               if (statusRef.current !== 'Limite de ciclos do período atingido. Aguardando próximo horário...') {
+                   setStatus('Limite de ciclos do período atingido. Aguardando próximo horário...');
+                   if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+                     ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
+                   }
+               }
            }
         }
       } else {
@@ -594,7 +614,7 @@ export default function useDerivBot() {
             ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
           }
         } else {
-          if (statusRef.current !== 'Aguardando próximo horário agendado...') {
+          if (statusRef.current !== 'Aguardando próximo horário agendado...' && statusRef.current !== 'Sessão encerrada. Aguardando próximo horário...') {
             setStatus('Aguardando próximo horário agendado...');
           }
         }
@@ -1213,6 +1233,7 @@ export default function useDerivBot() {
         if (cyclePauseTimeoutRef.current) clearTimeout(cyclePauseTimeoutRef.current);
         
         cyclePauseTimeoutRef.current = setTimeout(() => {
+          cyclePauseTimeoutRef.current = null;
           if (!isRunningRef.current) return; // Se o usuário parou o robô manualmente na pausa
           
           statsRef.current.cycleSessionProfit = 0;
