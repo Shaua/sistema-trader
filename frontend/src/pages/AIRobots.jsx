@@ -204,6 +204,93 @@ export default function AIRobots() {
               <option value="agressivo">Agressivo</option>
             </select>
           </div>
+
+          {/* CRONOGRAMA DE SESSÕES */}
+          <div style={{ padding: '12px 16px', background: 'var(--color-bg-secondary)', borderRadius: 8, border: '1px solid var(--color-border)', marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: config.enableSchedule ? 12 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                <Clock size={16} /> Cronograma Diário
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={config.enableSchedule || false} 
+                  onChange={(e) => updateConfig('enableSchedule', e.target.checked)} 
+                  disabled={isRunning}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ fontSize: 12 }}>Ativar</span>
+              </label>
+            </div>
+            
+            {config.enableSchedule && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {config.schedules?.map((schedule, index) => (
+                  <div key={schedule.id} style={{ border: '1px solid var(--color-border)', padding: 8, borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600 }}>
+                      <span>Período {index + 1}</span>
+                      <button 
+                        style={{ background: 'transparent', border: 'none', color: 'var(--color-critical)', cursor: 'pointer' }}
+                        onClick={() => {
+                          const newSchedules = config.schedules.filter(s => s.id !== schedule.id);
+                          updateConfig('schedules', newSchedules);
+                        }}
+                        disabled={isRunning}
+                      >Remover</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="time" className="form-input" style={{ flex: 1, padding: 4, fontSize: 12 }} value={schedule.startTime} onChange={(e) => {
+                        const newSchedules = [...config.schedules];
+                        newSchedules[index].startTime = e.target.value;
+                        updateConfig('schedules', newSchedules);
+                      }} disabled={isRunning}/>
+                      <span style={{ alignSelf: 'center' }}>-</span>
+                      <input type="time" className="form-input" style={{ flex: 1, padding: 4, fontSize: 12 }} value={schedule.endTime} onChange={(e) => {
+                        const newSchedules = [...config.schedules];
+                        newSchedules[index].endTime = e.target.value;
+                        updateConfig('schedules', newSchedules);
+                      }} disabled={isRunning}/>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Meta ($)</span>
+                        <input type="number" className="form-input" style={{ padding: 4, fontSize: 12 }} value={schedule.cycleTarget} onChange={(e) => {
+                          const newSchedules = [...config.schedules];
+                          newSchedules[index].cycleTarget = parseFloat(e.target.value);
+                          updateConfig('schedules', newSchedules);
+                        }} disabled={isRunning}/>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Pausa (m)</span>
+                        <input type="number" className="form-input" style={{ padding: 4, fontSize: 12 }} value={schedule.pauseTimeMinutes} onChange={(e) => {
+                          const newSchedules = [...config.schedules];
+                          newSchedules[index].pauseTimeMinutes = parseInt(e.target.value);
+                          updateConfig('schedules', newSchedules);
+                        }} disabled={isRunning}/>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Ciclos Max</span>
+                        <input type="number" className="form-input" style={{ padding: 4, fontSize: 12 }} value={schedule.maxCycles} onChange={(e) => {
+                          const newSchedules = [...config.schedules];
+                          newSchedules[index].maxCycles = parseInt(e.target.value);
+                          updateConfig('schedules', newSchedules);
+                        }} disabled={isRunning}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button 
+                  className="btn"
+                  style={{ justifyContent: 'center', background: 'var(--color-bg-tertiary)', fontSize: 12, padding: '8px' }}
+                  onClick={() => {
+                    const newSchedules = [...(config.schedules || []), { id: Date.now(), startTime: '00:00', endTime: '23:59', cycleTarget: 0.33, pauseTimeMinutes: 30, maxCycles: 5 }];
+                    updateConfig('schedules', newSchedules);
+                  }}
+                  disabled={isRunning}
+                >+ Adicionar Período</button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: 20 }}>

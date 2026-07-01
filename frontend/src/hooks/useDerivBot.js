@@ -54,17 +54,34 @@ export default function useDerivBot() {
   const ws = useRef(null);
   const isComponentMounted = useRef(true);
 
-  const [config, setConfig] = useState({
-    initialStake: 0.35,
-    targetProfit: 0.33,
-    stopLoss: 15.00,
-    maxStake: 10.00,
-    maxMartingaleLevel: 3,
-    market: 'R_10', // Volatility 10 Index
-    strategy: 'LOW',
-    mode: 'veloz', // veloz (1), balanceado (2), preciso (3)
-    riskManagement: 'hibrido', // conservador, otimizado, agressivo, hit_and_run, amortizacao, hibrido
-  });
+  const loadConfig = () => {
+    try {
+      const saved = localStorage.getItem('bot_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      initialStake: 0.35,
+      targetProfit: 5.00,
+      stopLoss: 15.00,
+      maxStake: 10.00,
+      maxMartingaleLevel: 3,
+      market: 'R_10',
+      strategy: 'LOW',
+      mode: 'veloz',
+      riskManagement: 'hibrido',
+      enableCycles: false,
+      cycleTarget: 0.33,
+      pauseTimeMinutes: 30,
+      enableSchedule: false,
+      schedules: [
+        { id: 1, startTime: '08:00', endTime: '12:00', cycleTarget: 0.33, pauseTimeMinutes: 30, maxCycles: 5 },
+        { id: 2, startTime: '14:00', endTime: '18:00', cycleTarget: 0.33, pauseTimeMinutes: 30, maxCycles: 5 },
+        { id: 3, startTime: '20:00', endTime: '23:59', cycleTarget: 0.33, pauseTimeMinutes: 30, maxCycles: 5 }
+      ]
+    };
+  };
+
+  const [config, setConfig] = useState(loadConfig());
 
   // State
   const [isRunning, setIsRunning] = useState(false);
@@ -82,6 +99,8 @@ export default function useDerivBot() {
     virtualLossCount: 0,
     martingaleLevel: 0,
     cycleProfit: 0,
+    currentCycle: 1,
+    cycleSessionProfit: 0,
     lastDigit: null,
     cooldownTicks: 0,
     recentDigits: [],
@@ -91,6 +110,7 @@ export default function useDerivBot() {
     ghostEntryWait: false,
     recentQuotes: [],
     amortizationDebt: 0,
+    activeScheduleId: null,
     diagnostic: {
       targetLosses: 1,
       highInLast10: 0,
@@ -113,6 +133,8 @@ export default function useDerivBot() {
   const keepAliveAudioRef = useRef(null);
   const tradeTimeoutRef = useRef(null);
   const workerRef = useRef(null);
+  const cyclePauseTimeoutRef = useRef(null);
+  const checkScheduleRef = useRef(null);
 
   useEffect(() => {
     configRef.current = config;
@@ -463,6 +485,9 @@ export default function useDerivBot() {
     statsRef.current.ghostEntryWait = false;
     statsRef.current.amortizationDebt = 0;
     statsRef.current.fixedInstallment = 0;
+    statsRef.current.currentCycle = 1;
+    statsRef.current.cycleSessionProfit = 0;
+    statsRef.current.activeScheduleId = null; // Reset schedule tracking on full start
     statsRef.current.diagnostic = {
       targetLosses: 1,
       highInLast10: 0,
@@ -478,11 +503,16 @@ export default function useDerivBot() {
     requestWakeLock();
     startAudioKeepAlive();
 
-    // Subscribe to ticks
-    ws.current.send(JSON.stringify({
-      ticks: configRef.current.market,
-      subscribe: 1
-    }));
+    // Se estiver usando cronograma, não se inscreve logo de cara.
+    // O useEffect do cronograma fará a checagem e inscrição.
+    if (!configRef.current.enableSchedule) {
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({
+          ticks: configRef.current.market,
+          subscribe: 1
+        }));
+      }
+    }
   };
 
   const stopBot = () => {
@@ -491,16 +521,93 @@ export default function useDerivBot() {
     
     releaseWakeLock();
     stopAudioKeepAlive();
+    if (cyclePauseTimeoutRef.current) {
+      clearTimeout(cyclePauseTimeoutRef.current);
+      cyclePauseTimeoutRef.current = null;
+    }
     
     // Unsubscribe from ticks
-    ws.current.send(JSON.stringify({
-      forget_all: 'ticks'
-    }));
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        forget_all: 'ticks'
+      }));
+    }
   };
 
   const updateConfig = (key, value) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
+    setConfig(prev => {
+      const newConf = { ...prev, [key]: value };
+      localStorage.setItem('bot_config', JSON.stringify(newConf));
+      return newConf;
+    });
   };
+
+  useEffect(() => {
+    if (!isRunning || !config.enableSchedule) {
+      if (checkScheduleRef.current) clearInterval(checkScheduleRef.current);
+      return;
+    }
+
+    const checkSchedule = () => {
+      const now = new Date();
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      const currentMin = now.getMinutes().toString().padStart(2, '0');
+      const currentTimeStr = `${currentHour}:${currentMin}`;
+
+      let activeSchedule = null;
+      for (const schedule of config.schedules) {
+        if (currentTimeStr >= schedule.startTime && currentTimeStr <= schedule.endTime) {
+          // We only activate if cycles are not maxed out
+          if (!statsRef.current.activeScheduleId || statsRef.current.activeScheduleId === schedule.id) {
+             if (statsRef.current.currentCycle <= schedule.maxCycles) {
+               activeSchedule = schedule;
+               break;
+             }
+          }
+        }
+      }
+
+      if (activeSchedule) {
+        if (statsRef.current.activeScheduleId !== activeSchedule.id) {
+           // Started a new schedule block!
+           statsRef.current.activeScheduleId = activeSchedule.id;
+           statsRef.current.currentCycle = 1;
+           statsRef.current.cycleSessionProfit = 0;
+           setStats({ ...statsRef.current });
+           setStatus(`Sessão ${activeSchedule.startTime} iniciada! Buscando trades...`);
+           
+           if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+             ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
+             setTimeout(() => {
+               if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+                 ws.current.send(JSON.stringify({ ticks: configRef.current.market, subscribe: 1 }));
+               }
+             }, 1000);
+           }
+        }
+      } else {
+        // No active schedule block
+        if (statsRef.current.activeScheduleId) {
+          statsRef.current.activeScheduleId = null;
+          setStatus('Sessão encerrada. Aguardando próximo horário...');
+          if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
+          }
+        } else {
+          if (statusRef.current !== 'Aguardando próximo horário agendado...') {
+            setStatus('Aguardando próximo horário agendado...');
+          }
+        }
+      }
+    };
+
+    checkSchedule();
+    checkScheduleRef.current = setInterval(checkSchedule, 30000);
+
+    return () => {
+      if (checkScheduleRef.current) clearInterval(checkScheduleRef.current);
+    };
+  }, [isRunning, config.enableSchedule, config.schedules]);
 
   const handleTick = (tickData) => {
     if (!isRunningRef.current) return;
@@ -815,6 +922,9 @@ export default function useDerivBot() {
     }
     
     statsRef.current.cycleProfit += profit;
+    if (configRef.current.enableCycles || configRef.current.enableSchedule) {
+      statsRef.current.cycleSessionProfit += profit;
+    }
     
     const rm = configRef.current.riskManagement;
     const limitNiveis = configRef.current.maxMartingaleLevel || 3;
@@ -1072,8 +1182,61 @@ export default function useDerivBot() {
       playAlertSound('win');
       api.post('/telegram/notify', { message: `🛡️ *TRAILING STOP ATIVADO* 🛡️\n\nPiso de Lucro Garantido Atingido!\nLucro Final: *$${currentTotalProfit.toFixed(2)}*\n\nO robô garantiu parte do lucro e foi pausado automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
     } else {
-      if (isRunningRef.current && status !== 'Resfriando após Sequência de Vitórias...') {
-        setStatus('Buscando trades...');
+      let currentCycleTarget = configRef.current.cycleTarget;
+      let currentPauseMins = configRef.current.pauseTimeMinutes || 30;
+      let maxCycles = Infinity;
+      let isScheduleActive = false;
+
+      if (configRef.current.enableSchedule && statsRef.current.activeScheduleId) {
+        const activeSchedule = configRef.current.schedules?.find(s => s.id === statsRef.current.activeScheduleId);
+        if (activeSchedule) {
+           currentCycleTarget = activeSchedule.cycleTarget;
+           currentPauseMins = activeSchedule.pauseTimeMinutes;
+           maxCycles = activeSchedule.maxCycles;
+           isScheduleActive = true;
+        }
+      }
+
+      const isCycleMode = configRef.current.enableCycles || isScheduleActive;
+
+      if (isCycleMode && statsRef.current.cycleSessionProfit >= currentCycleTarget && currentCycleTarget > 0) {
+        // Ciclo concluído
+        setStatus(`Ciclo ${statsRef.current.currentCycle} Concluído! Pausa de ${currentPauseMins} min...`);
+        playAlertSound('win');
+        api.post('/telegram/notify', { message: `⏳ *CICLO ${statsRef.current.currentCycle} CONCLUÍDO* ⏳\n\nLucro do Ciclo: *$${statsRef.current.cycleSessionProfit.toFixed(2)}*\nLucro Total: *$${currentTotalProfit.toFixed(2)}*\n\nO robô fará uma pausa de ${currentPauseMins} minutos e retornará automaticamente.` }).catch(err => console.error('Falha ao notificar telegram', err));
+        
+        // Unsubscribe from ticks temporarily
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ forget_all: 'ticks' }));
+        }
+        
+        if (cyclePauseTimeoutRef.current) clearTimeout(cyclePauseTimeoutRef.current);
+        
+        cyclePauseTimeoutRef.current = setTimeout(() => {
+          if (!isRunningRef.current) return; // Se o usuário parou o robô manualmente na pausa
+          
+          statsRef.current.cycleSessionProfit = 0;
+          statsRef.current.currentCycle += 1;
+          setStats({ ...statsRef.current });
+          
+          // Se for cronograma e estourou os ciclos, não reinicia os ticks.
+          // O useEffect vai tratar de encerrar a sessão.
+          if (isScheduleActive && statsRef.current.currentCycle > maxCycles) {
+             setStatus('Limite de ciclos do período atingido. Aguardando próximo horário...');
+             return;
+          }
+          
+          setStatus(`Buscando trades (Ciclo ${statsRef.current.currentCycle})...`);
+          
+          // Resubscribe to ticks
+          if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({ ticks: configRef.current.market, subscribe: 1 }));
+          }
+        }, currentPauseMins * 60000);
+      } else {
+        if (isRunningRef.current && status !== 'Resfriando após Sequência de Vitórias...') {
+          setStatus(isCycleMode ? `Buscando trades (Ciclo ${statsRef.current.currentCycle})...` : 'Buscando trades...');
+        }
       }
     }
   };
