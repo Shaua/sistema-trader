@@ -399,12 +399,26 @@ export default function useDerivBot() {
       
       // Heartbeat detector: check if no messages received for 20s
       lastMessageTimeRef.current = Date.now();
+      socket.lastTickTime = Date.now(); // Track ticks separately
+      
       wsTimeoutCheckRef.current = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) {
-          const timeSinceLastMsg = Date.now() - lastMessageTimeRef.current;
+          const now = Date.now();
+          const timeSinceLastMsg = now - lastMessageTimeRef.current;
+          const timeSinceLastTick = now - socket.lastTickTime;
+          
           if (timeSinceLastMsg > 20000) {
             console.log('Websocket timeout detectado (sem mensagens por 20s). Forçando reconexão...');
             socket.close(); // Dispara o onclose automaticamente e reconecta
+          } else if (isRunningRef.current && timeSinceLastTick > 30000) {
+            // Se está rodando, mas não recebe ticks há 30s (e não está em pausa)
+            const st = statusRef.current;
+            const isPaused = st.includes('Pausa de') || st.includes('Aguardando') || st.includes('Limite de ciclos') || st.includes('encerrada');
+            if (!isPaused) {
+              console.log('Tick stream timeout detectado (sem ticks por 30s). A API da Deriv parou de enviar o fluxo. Forçando reconexão...');
+              setStatus('Fluxo de dados interrompido. Reconectando...');
+              socket.close();
+            }
           }
         }
       }, 5000);
@@ -413,6 +427,10 @@ export default function useDerivBot() {
     socket.onmessage = (msg) => {
       lastMessageTimeRef.current = Date.now();
       const data = JSON.parse(msg.data);
+      
+      if (data.msg_type === 'tick') {
+        socket.lastTickTime = Date.now();
+      }
       
       if (data.msg_type === 'ping') {
         return;
