@@ -9,6 +9,19 @@ export default function AIRobots() {
   const [activeTab, setActiveTab] = useState('negociacoes'); // grafico, digitos, negociacoes, registros
   const [deepAnalysis, setDeepAnalysis] = useState(false);
 
+  React.useEffect(() => {
+    const handleApplyConfig = (e) => {
+      const changes = e.detail;
+      if (changes) {
+        Object.keys(changes).forEach(key => {
+          updateConfig(key, changes[key]);
+        });
+      }
+    };
+    window.addEventListener('advisor_apply_config', handleApplyConfig);
+    return () => window.removeEventListener('advisor_apply_config', handleApplyConfig);
+  }, [updateConfig]);
+
   const getMarketName = (symbol) => {
     const markets = {
       '1HZ10V': 'Volatility 10 (1s) Index',

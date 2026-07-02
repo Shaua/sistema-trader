@@ -104,9 +104,20 @@ export default function AdvisorWidget() {
             <div className="advisor-message-bubble">
               {msg.text}
               {msg.changes && (
-                <pre className="advisor-changes">
-                  {JSON.stringify(msg.changes, null, 2)}
-                </pre>
+                <div className="advisor-changes">
+                  <pre>{JSON.stringify(msg.changes, null, 2)}</pre>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ marginTop: 8, padding: '4px 12px', fontSize: 12, minHeight: '30px', height: '30px' }}
+                    onClick={() => {
+                      const event = new CustomEvent('advisor_apply_config', { detail: msg.changes });
+                      window.dispatchEvent(event);
+                      setMessages(prev => [...prev, { role: 'system', text: 'Configuração aplicada com sucesso!' }]);
+                    }}
+                  >
+                    Aplicar Mudanças
+                  </button>
+                </div>
               )}
             </div>
           </div>
