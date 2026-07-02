@@ -1345,6 +1345,7 @@ export default function useDerivBot() {
               statsRef.current.diagnostic.radarMessage = `🤖 Auto-Pilot interveio: ${result.reason}`;
               setStatus('Auto-Pilot: Pausa Preventiva Ativada!');
               setStats({ ...statsRef.current });
+              api.post('/telegram/notify', { message: `🤖 *AUTO-PILOT IA ATIVOU PAUSA PREVENTIVA* 🤖\n\nO mercado apresentou condições de risco e a IA pausou o robô temporariamente.\n\nMotivo da IA: _"${result.reason}"_` }).catch(err => console.error('Falha ao notificar telegram', err));
             } else if (result.action === 'change_mode' && result.mode) {
               // Trigger config change via custom event so it updates UI too
               const event = new CustomEvent('advisor_apply_config', { detail: { mode: result.mode } });
@@ -1352,6 +1353,7 @@ export default function useDerivBot() {
               statsRef.current.diagnostic.radarMessage = `🤖 Auto-Pilot interveio: Modo alterado para ${result.mode}. Motivo: ${result.reason}`;
               setStatus(`Auto-Pilot ativou modo ${result.mode}`);
               setStats({ ...statsRef.current });
+              api.post('/telegram/notify', { message: `🤖 *AUTO-PILOT IA ALTEROU MODO* 🤖\n\nA IA detectou que o modo atual estava arriscado e reconfigurou o robô.\n\nNovo Modo: *${result.mode}*\nMotivo da IA: _"${result.reason}"_` }).catch(err => console.error('Falha ao notificar telegram', err));
             } else if (result.action === 'continue') {
               console.log('[Auto-Pilot] IA avaliou o cenário e permitiu continuar.');
             }
