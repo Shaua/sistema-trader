@@ -1,0 +1,95 @@
+const cron = require('node-cron');
+const supabase = require('../config/supabase');
+const statsEngine = require('./statsEngine');
+const aiService = require('./ai.service');
+const axios = require('axios');
+
+class CronService {
+  start() {
+    console.log('[CronService] Iniciando agendamentos...');
+
+    // Relatório Diário: Todos os dias às 23:50
+    cron.schedule('50 23 * * *', () => {
+      console.log('[CronService] Disparando Relatório Diário');
+      this.generateAndSendReport('diário');
+    });
+
+    // Relatório Semanal: Todo Domingo às 23:55
+    cron.schedule('55 23 * * 0', () => {
+      console.log('[CronService] Disparando Relatório Semanal');
+      this.generateAndSendReport('semanal');
+    });
+
+    // Relatório Mensal: Último dia do mês às 23:59 (truque: checar no último dia não é direto no cron padrão, 
+    // mas '59 23 28-31 * *' funciona com checagem adicional, para simplificar vamos fazer dia 1 as 00:01 do mes seguinte)
+    cron.schedule('1 0 1 * *', () => {
+      console.log('[CronService] Disparando Relatório Mensal');
+      this.generateAndSendReport('mensal');
+    });
+  }
+
+  async generateAndSendReport(type) {
+    try {
+      // 1. Pegar usuários
+      const { data: users, error } = await supabase.from('user_profiles').select('id');
+      if (error || !users || users.length === 0) return;
+
+      for (const user of users) {
+        // 2. Pegar estatísticas da conta DEMO e REAL (por padrão vamos usar REAL)
+        const statsReal = await statsEngine.calculateDashboardKPIs(user.id, { accountType: 'REAL' });
+        
+        if (!statsReal || statsReal.totalOperations === 0) continue;
+
+        // 3. Montar Prompt para IA
+        const systemInstruction = `Você é um Analista de Dados Quantitativo (Analista Sazonal).
+Seu objetivo é analisar os dados de um trader e gerar um relatório ${type}.
+Seja direto, profissional e focado em insights matemáticos e horários/dias que dão lucro ou prejuízo.
+Utilize formatação amigável para o Telegram (Markdown com * e _) e Emojis.
+
+DADOS DA CONTA REAL:
+- Total Operações: ${statsReal.totalOperations}
+- WinRate: ${statsReal.winRate.toFixed(2)}%
+- Lucro Acumulado: $${statsReal.accumulatedProfit.toFixed(2)}
+- Melhor Sequência de Vitórias: ${statsReal.maxWinStreak}
+- Pior Sequência de Derrotas: ${statsReal.maxLossStreak}
+- Dias Positivos: ${statsReal.positiveDays} / Negativos: ${statsReal.negativeDays}
+- Payoff: ${statsReal.payoff.toFixed(2)}
+
+Analise os dados e crie um relatório curto (máximo 4 parágrafos) com o título "📊 *RELATÓRIO ${type.toUpperCase()} IA* 📊".
+Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.`;
+
+        // 4. Chamar IA
+        const aiResult = await aiService.processChat('Por favor, gere meu relatório.', systemInstruction);
+
+        if (aiResult.reply) {
+          // 5. Enviar para Telegram
+          await this.sendTelegramAlert(aiResult.reply);
+        }
+      }
+    } catch (err) {
+      console.error('[CronService] Erro ao gerar relatório:', err.message);
+    }
+  }
+
+  async sendTelegramAlert(message) {
+    try {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      
+      if (!botToken || !chatId) {
+        console.warn('Telegram desativado. Variáveis ausentes no .env');
+        return;
+      }
+
+      await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown'
+      });
+    } catch (err) {
+      console.error('Erro ao notificar Telegram:', err.message);
+    }
+  }
+}
+
+module.exports = new CronService();

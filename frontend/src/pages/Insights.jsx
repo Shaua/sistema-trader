@@ -53,10 +53,25 @@ export default function Insights() {
               Analisando padrões de comportamento, gestão de risco e consistência operacional...
             </div>
           </div>
-          <button className="btn btn-secondary btn-sm" style={{ marginLeft: 'auto' }} onClick={refresh} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Atualizar
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+            <button className="btn btn-primary btn-sm" onClick={async () => {
+              try {
+                setLoading(true);
+                await api.post('/ai/force-report', { type: 'semanal' });
+                toast.success('Relatório semanal solicitado! Verifique seu Telegram em instantes.');
+              } catch (e) {
+                toast.error('Erro ao solicitar relatório.');
+              } finally {
+                setLoading(false);
+              }
+            }} disabled={loading}>
+              Gerar Relatório IA
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={refresh} disabled={loading}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Atualizar
+            </button>
+          </div>
         </motion.div>
 
         {/* Insights */}

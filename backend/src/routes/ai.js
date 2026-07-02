@@ -96,4 +96,20 @@ Não coloque crases markdown no JSON.`;
   }
 });
 
+// Força o gatilho de relatório (uso manual/teste)
+router.post('/force-report', requireAI, async (req, res) => {
+  try {
+    const { type } = req.body; // 'diário', 'semanal', 'mensal'
+    const cronService = require('../services/cronService');
+    
+    // Roda em background
+    cronService.generateAndSendReport(type || 'diário');
+    
+    res.json({ success: true, message: `Geração de relatório ${type || 'diário'} iniciada em background.` });
+  } catch (error) {
+    console.error('[AI Route] Erro no /force-report:', error);
+    res.status(500).json({ error: 'Erro ao forçar relatório' });
+  }
+});
+
 module.exports = router;

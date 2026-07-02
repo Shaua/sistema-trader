@@ -15,6 +15,7 @@ const adminRoutes = require('./routes/admin');
 const derivRoutes = require('./routes/deriv');
 const telegramRoutes = require('./routes/telegram');
 const aiRoutes = require('./routes/ai');
+const cronService = require('./services/cronService');
 
 const app = express();
 
@@ -62,6 +63,9 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
+
+// Start background cron jobs
+cronService.start();
 
 const supabase = require('./config/supabase');
 const { startRealtimeSync } = require('./services/derivRealtime');
