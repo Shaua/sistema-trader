@@ -1325,6 +1325,40 @@ export default function useDerivBot() {
         }
       }
     }
+
+    // -----------------------------------------------------
+    // Auto-Pilot IA (Regulador de Risco Dinâmico)
+    // -----------------------------------------------------
+    const totalTrades = statsRef.current.wins + statsRef.current.losses;
+    if (configRef.current.enableAiRegulator && isRunningRef.current) {
+      if ((totalTrades > 0 && totalTrades % 10 === 0) || statsRef.current.martingaleLevel >= 2) {
+        // Envia raio-x em background sem travar o frontend
+        api.post('/ai/regulate', {
+          stats: statsRef.current,
+          config: configRef.current
+        }).then(res => {
+          const result = res.data;
+          if (result && result.action) {
+            if (result.action === 'pause' && result.duration_ticks) {
+              statsRef.current.cooldownTicks = result.duration_ticks;
+              statsRef.current.virtualLossCount = 0;
+              statsRef.current.diagnostic.radarMessage = `🤖 Auto-Pilot interveio: ${result.reason}`;
+              setStatus('Auto-Pilot: Pausa Preventiva Ativada!');
+              setStats({ ...statsRef.current });
+            } else if (result.action === 'change_mode' && result.mode) {
+              // Trigger config change via custom event so it updates UI too
+              const event = new CustomEvent('advisor_apply_config', { detail: { mode: result.mode } });
+              window.dispatchEvent(event);
+              statsRef.current.diagnostic.radarMessage = `🤖 Auto-Pilot interveio: Modo alterado para ${result.mode}. Motivo: ${result.reason}`;
+              setStatus(`Auto-Pilot ativou modo ${result.mode}`);
+              setStats({ ...statsRef.current });
+            } else if (result.action === 'continue') {
+              console.log('[Auto-Pilot] IA avaliou o cenário e permitiu continuar.');
+            }
+          }
+        }).catch(err => console.error('Erro no Auto-Pilot IA:', err));
+      }
+    }
   };
 
   return {

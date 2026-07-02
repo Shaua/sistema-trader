@@ -66,10 +66,32 @@ Analise os trades e devolva um JSON com:
 
 router.post('/regulate', requireAI, async (req, res) => {
   try {
-    const { stats, recentTrades } = req.body;
-    // ... Implementação do regulador
-    res.json({ status: 'ok' });
+    const { stats, config } = req.body;
+
+    const systemInstruction = `Você é um robô de Risco e Compliance de alta frequência (Auto-Pilot).
+O usuário ativou você para monitorar e intervir nas operações caso necessário.
+Aqui estão as estatísticas atuais da sessão:
+- Lucro: $${stats.profit} (Meta: $${config.targetProfit})
+- WinRate atual: ${(stats.wins / (stats.wins + stats.losses || 1) * 100).toFixed(2)}%
+- Perdas Virtuais / Nível de Martingale: ${stats.martingaleLevel}
+- Dígitos recentes ruins (alta concentração de 8 e 9?): Últimos dígitos: ${JSON.stringify(stats.recentDigits?.slice(-20) || [])}
+- Modo Atual: ${config.mode}
+- Gerenciamento Atual: ${config.riskManagement}
+
+Avalie a situação e decida se deve intervir.
+Responda APENAS com um JSON neste formato:
+{
+  "action": "continue", // ou "pause" ou "change_mode"
+  "duration_ticks": 0, // se action for "pause", quantidade de ticks para resfriar (ex: 300 = 5 mins)
+  "mode": "", // se action for "change_mode", o novo modo sugerido (ex: "balanceado")
+  "reason": "Sua justificativa para a ação, será exibida na tela do usuário."
+}
+Não coloque crases markdown no JSON.`;
+
+    const result = await aiService.processChat('Analise os dados e aja.', systemInstruction);
+    res.json(result);
   } catch (error) {
+    console.error('[AI Route] Erro no /regulate:', error);
     res.status(500).json({ error: 'Erro no regulador' });
   }
 });

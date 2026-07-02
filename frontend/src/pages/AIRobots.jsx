@@ -304,6 +304,30 @@ export default function AIRobots() {
               </div>
             )}
           </div>
+
+          {/* AUTO-PILOT IA */}
+          <div style={{ padding: '12px 16px', background: 'var(--color-bg-secondary)', borderRadius: 8, border: '1px solid var(--color-border)', marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>
+                <Bot size={16} /> Auto-Pilot IA
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={config.enableAiRegulator || false} 
+                  onChange={(e) => updateConfig('enableAiRegulator', e.target.checked)} 
+                  disabled={isRunning}
+                  style={{ marginRight: 8 }}
+                />
+                <span style={{ fontSize: 12 }}>Ativar</span>
+              </label>
+            </div>
+            {config.enableAiRegulator && (
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8 }}>
+                A Inteligência Artificial monitorará suas operações em background e intervirá automaticamente caso detecte anomalias no mercado.
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: 20 }}>
