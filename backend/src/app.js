@@ -14,6 +14,7 @@ const reportsRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const derivRoutes = require('./routes/deriv');
 const telegramRoutes = require('./routes/telegram');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/deriv', derivRoutes);
 app.use('/api/telegram', telegramRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -63,6 +65,10 @@ app.use((err, req, res, next) => {
 
 const supabase = require('./config/supabase');
 const { startRealtimeSync } = require('./services/derivRealtime');
+const aiService = require('./services/ai.service');
+
+// Inicializa a IA
+aiService.init();
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', async () => {

@@ -36,6 +36,8 @@ function LoadingScreen() {
   )
 }
 
+import AdvisorWidget from './components/ui/AdvisorWidget'
+
 // Layout protegido
 function ProtectedLayout({ children }) {
   const { sidebarOpen } = useStore()
@@ -45,6 +47,7 @@ function ProtectedLayout({ children }) {
       <main className="main-content">
         {children}
       </main>
+      <AdvisorWidget />
     </div>
   )
 }
