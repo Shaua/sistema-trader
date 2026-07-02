@@ -135,6 +135,8 @@ export default function useDerivBot() {
   const workerRef = useRef(null);
   const cyclePauseTimeoutRef = useRef(null);
   const checkScheduleRef = useRef(null);
+  const lastMessageTimeRef = useRef(Date.now());
+  const wsTimeoutCheckRef = useRef(null);
 
   useEffect(() => {
     configRef.current = config;
@@ -269,6 +271,11 @@ export default function useDerivBot() {
       ws.current = null;
     }
     
+    if (wsTimeoutCheckRef.current) {
+      clearInterval(wsTimeoutCheckRef.current);
+      wsTimeoutCheckRef.current = null;
+    }
+
     setStatus('Conectando...');
     setAuthorized(false);
     
@@ -389,9 +396,22 @@ export default function useDerivBot() {
         if (socket.readyState !== WebSocket.OPEN) return;
         worker.postMessage({ command: 'start', interval: 10000 });
       }, 5000);
+      
+      // Heartbeat detector: check if no messages received for 20s
+      lastMessageTimeRef.current = Date.now();
+      wsTimeoutCheckRef.current = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          const timeSinceLastMsg = Date.now() - lastMessageTimeRef.current;
+          if (timeSinceLastMsg > 20000) {
+            console.log('Websocket timeout detectado (sem mensagens por 20s). Forçando reconexão...');
+            socket.close(); // Dispara o onclose automaticamente e reconecta
+          }
+        }
+      }, 5000);
     };
 
     socket.onmessage = (msg) => {
+      lastMessageTimeRef.current = Date.now();
       const data = JSON.parse(msg.data);
       
       if (data.msg_type === 'ping') {
@@ -447,6 +467,10 @@ export default function useDerivBot() {
         workerRef.current = null;
       }
       if (socket.authTimeout) clearTimeout(socket.authTimeout);
+      if (wsTimeoutCheckRef.current) {
+        clearInterval(wsTimeoutCheckRef.current);
+        wsTimeoutCheckRef.current = null;
+      }
       if (isComponentMounted.current) {
         setStatus('Desconectado. Reconectando...');
         setAuthorized(false);
@@ -467,6 +491,7 @@ export default function useDerivBot() {
           workerRef.current = null;
         }
         if (ws.current.authTimeout) clearTimeout(ws.current.authTimeout);
+        if (wsTimeoutCheckRef.current) clearInterval(wsTimeoutCheckRef.current);
         ws.current.close();
       }
     };
@@ -737,11 +762,18 @@ export default function useDerivBot() {
       return; 
     }
     
-    // 1. Resfriamento Pós-Loss
+    // 1. Resfriamento (Pausas)
     if (statsRef.current.cooldownTicks > 0) {
       statsRef.current.cooldownTicks -= 1;
       setStats({ ...statsRef.current });
-      if (statusRef.current !== 'Resfriando após Loss...') setStatus('Resfriando após Loss...');
+      
+      // Apenas atualiza o status se não for uma mensagem prioritária
+      const current = statusRef.current;
+      if (!current.includes('Amortizando') && !current.includes('Alta volatilidade') && !current.includes('Sequência de Vitórias')) {
+        if (current !== 'Resfriando (Pausa de Segurança)...') {
+          setStatus('Resfriando (Pausa de Segurança)...');
+        }
+      }
       return; // Ignora o mercado durante o resfriamento
     }
 
@@ -803,7 +835,7 @@ export default function useDerivBot() {
 
     statsRef.current.diagnostic.radarMessage = 'Gráfico limpo. Rastreador ativado.';
 
-    if (statusRef.current === 'Resfriando após Loss...' || statusRef.current === 'Onda longa de anomalia detectada. Pausando...' || statusRef.current === 'Micro-Onda detectada. Pausando...' || statusRef.current === 'Filtro Veloz: Ignorando cluster perigoso...' || statusRef.current === 'Reconectado! Buscando trades...') {
+    if (statusRef.current === 'Resfriando (Pausa de Segurança)...' || statusRef.current === 'Resfriando após Loss...' || statusRef.current === 'Onda longa de anomalia detectada. Pausando...' || statusRef.current === 'Micro-Onda detectada. Pausando...' || statusRef.current === 'Filtro Veloz: Ignorando cluster perigoso...' || statusRef.current === 'Reconectado! Buscando trades...') {
       setStatus('Buscando trades...');
     }
 
