@@ -569,7 +569,18 @@ export default function useDerivBot() {
 
       let activeSchedule = null;
       for (const schedule of config.schedules) {
-        if (currentTimeStr >= schedule.startTime && currentTimeStr <= schedule.endTime) {
+        const start = schedule.startTime;
+        const end = schedule.endTime;
+        
+        let isActive = false;
+        if (start <= end) {
+          isActive = currentTimeStr >= start && currentTimeStr <= end;
+        } else {
+          // Crosses midnight
+          isActive = currentTimeStr >= start || currentTimeStr <= end;
+        }
+
+        if (isActive) {
            activeSchedule = schedule;
            break;
         }
