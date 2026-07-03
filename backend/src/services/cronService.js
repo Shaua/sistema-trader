@@ -107,13 +107,26 @@ Exemplo: { "reply": "seu texto do relatorio aqui" }`;
         return;
       }
 
-      await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'Markdown'
-      });
+      try {
+        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'Markdown'
+        });
+      } catch (telegramErr) {
+        if (telegramErr.response && telegramErr.response.status === 400) {
+          // Fallback to plain text if Markdown parsing failed (very common with AI generated text)
+          console.warn('Falha no parse do Markdown. Tentando envio em texto puro...');
+          await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            chat_id: chatId,
+            text: message
+          });
+        } else {
+          throw telegramErr;
+        }
+      }
     } catch (err) {
-      console.error('Erro ao notificar Telegram:', err.message);
+      console.error('Erro ao notificar Telegram:', err.response?.data || err.message);
     }
   }
 }
