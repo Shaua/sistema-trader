@@ -35,10 +35,16 @@ class CronService {
       if (error || !users || users.length === 0) return;
 
       for (const user of users) {
-        // 2. Pegar estatísticas da conta DEMO e REAL (por padrão vamos usar REAL)
-        const statsReal = await statsEngine.calculateDashboardKPIs(user.id, { accountType: 'REAL' });
+        // 2. Pegar estatísticas da conta REAL e DEMO
+        let stats = await statsEngine.calculateDashboardKPIs(user.id, { accountType: 'REAL' });
+        let accountName = 'REAL';
         
-        if (!statsReal || statsReal.totalOperations === 0) continue;
+        if (!stats || stats.totalOperations === 0) {
+          stats = await statsEngine.calculateDashboardKPIs(user.id, { accountType: 'DEMO' });
+          accountName = 'DEMO (TREINAMENTO)';
+        }
+        
+        if (!stats || stats.totalOperations === 0) continue;
 
         // 3. Montar Prompt para IA
         const systemInstruction = `Você é um Analista de Dados Quantitativo (Analista Sazonal).
@@ -46,14 +52,14 @@ Seu objetivo é analisar os dados de um trader e gerar um relatório ${type}.
 Seja direto, profissional e focado em insights matemáticos e horários/dias que dão lucro ou prejuízo.
 Utilize formatação amigável para o Telegram (Markdown com * e _) e Emojis.
 
-DADOS DA CONTA REAL:
-- Total Operações: ${statsReal.totalOperations}
-- WinRate: ${statsReal.winRate.toFixed(2)}%
-- Lucro Acumulado: $${statsReal.accumulatedProfit.toFixed(2)}
-- Melhor Sequência de Vitórias: ${statsReal.maxWinStreak}
-- Pior Sequência de Derrotas: ${statsReal.maxLossStreak}
-- Dias Positivos: ${statsReal.positiveDays} / Negativos: ${statsReal.negativeDays}
-- Payoff: ${statsReal.payoff.toFixed(2)}
+DADOS DA CONTA ${accountName}:
+- Total Operações: ${stats.totalOperations}
+- WinRate: ${stats.winRate.toFixed(2)}%
+- Lucro Acumulado: $${stats.accumulatedProfit.toFixed(2)}
+- Melhor Sequência de Vitórias: ${stats.maxWinStreak}
+- Pior Sequência de Derrotas: ${stats.maxLossStreak}
+- Dias Positivos: ${stats.positiveDays} / Negativos: ${stats.negativeDays}
+- Payoff: ${stats.payoff.toFixed(2)}
 
 Analise os dados e crie um relatório curto (máximo 4 parágrafos) com o título "📊 *RELATÓRIO ${type.toUpperCase()} IA* 📊".
 Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.`;
