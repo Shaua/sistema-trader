@@ -62,7 +62,9 @@ DADOS DA CONTA ${accountName}:
 - Payoff: ${stats.payoff.toFixed(2)}
 
 Analise os dados e crie um relatório curto (máximo 4 parágrafos) com o título "📊 *RELATÓRIO ${type.toUpperCase()} IA* 📊".
-Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.`;
+Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.
+MUITO IMPORTANTE: Você deve retornar o resultado EXCLUSIVAMENTE em formato JSON válido, contendo uma única propriedade chamada "reply" que armazena todo o texto do relatório. Não retorne mais nada além do JSON.
+Exemplo: { "reply": "seu texto do relatorio aqui" }`;
 
         // 4. Chamar IA
         const aiResult = await aiService.processChat('Por favor, gere meu relatório.', systemInstruction);
