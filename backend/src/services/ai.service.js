@@ -8,7 +8,7 @@ class AIService {
 
   init() {
     if (process.env.GEMINI_API_KEY) {
-      this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY.trim() });
       this.isInitialized = true;
       console.log('[AI Service] Gemini API inicializada com sucesso.');
     } else {
