@@ -76,6 +76,13 @@ Exemplo: { "reply": "seu texto do relatorio aqui" }`;
       }
     } catch (err) {
       console.error('[CronService] Erro ao gerar relatório:', err.message);
+      // Attempt to notify admin or user about the crash
+      try {
+        const { data: users } = await supabase.from('user_profiles').select('id');
+        if (users && users.length > 0) {
+          await this.sendTelegramAlert(`⚠️ *Falha Crítica no Auto-Pilot / Relatório IA* ⚠️\n\nErro interno detectado: _${err.message}_`, users[0].id);
+        }
+      } catch(e) {}
     }
   }
 
