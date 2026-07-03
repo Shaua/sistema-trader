@@ -63,7 +63,7 @@ Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.`;
 
         if (aiResult.reply) {
           // 5. Enviar para Telegram
-          await this.sendTelegramAlert(aiResult.reply);
+          await this.sendTelegramAlert(aiResult.reply, user.id);
         }
       }
     } catch (err) {
@@ -71,13 +71,24 @@ Aponte pontos fortes, pontos fracos e dê UMA sugestão prática sazonal.`;
     }
   }
 
-  async sendTelegramAlert(message) {
+  async sendTelegramAlert(message, userId) {
     try {
-      const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      const chatId = process.env.TELEGRAM_CHAT_ID;
+      if (!userId) {
+        console.warn('Telegram desativado. UserId não fornecido para o cronService.');
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('telegram_bot_token, telegram_chat_id')
+        .eq('id', userId)
+        .single();
+        
+      const botToken = profile?.telegram_bot_token;
+      const chatId = profile?.telegram_chat_id;
       
       if (!botToken || !chatId) {
-        console.warn('Telegram desativado. Variáveis ausentes no .env');
+        console.warn('Telegram desativado. Chaves ausentes no perfil do usuário.');
         return;
       }
 
