@@ -111,6 +111,9 @@ export default function useDerivBot() {
     recentQuotes: [],
     amortizationDebt: 0,
     activeScheduleId: null,
+    lastAiInterventionTrade: 0,
+    lastAiInterventionLevel: -1,
+    isAiAnalyzing: false,
     diagnostic: {
       targetLosses: 1,
       highInLast10: 0,
@@ -1330,13 +1333,23 @@ export default function useDerivBot() {
     // Auto-Pilot IA (Regulador de Risco Dinâmico)
     // -----------------------------------------------------
     const totalTrades = statsRef.current.wins + statsRef.current.losses;
-    if (configRef.current.enableAiRegulator && isRunningRef.current) {
-      if ((totalTrades > 0 && totalTrades % 10 === 0) || statsRef.current.martingaleLevel >= 2) {
+    
+    if (configRef.current.enableAiRegulator && isRunningRef.current && !statsRef.current.isAiAnalyzing) {
+      const shouldAnalyzeByTrades = totalTrades > 0 && totalTrades % 10 === 0 && statsRef.current.lastAiInterventionTrade !== totalTrades;
+      const shouldAnalyzeByRisk = statsRef.current.martingaleLevel >= 2 && statsRef.current.lastAiInterventionLevel !== statsRef.current.martingaleLevel;
+      
+      if (shouldAnalyzeByTrades || shouldAnalyzeByRisk) {
+        // Marca que está analisando para não floodar a API
+        statsRef.current.isAiAnalyzing = true;
+        if (shouldAnalyzeByTrades) statsRef.current.lastAiInterventionTrade = totalTrades;
+        if (shouldAnalyzeByRisk) statsRef.current.lastAiInterventionLevel = statsRef.current.martingaleLevel;
+        
         // Envia raio-x em background sem travar o frontend
         api.post('/ai/regulate', {
           stats: statsRef.current,
           config: configRef.current
         }).then(res => {
+          statsRef.current.isAiAnalyzing = false;
           const result = res.data;
           if (result && result.action) {
             if (result.action === 'pause' && result.duration_ticks) {
@@ -1358,7 +1371,10 @@ export default function useDerivBot() {
               console.log('[Auto-Pilot] IA avaliou o cenário e permitiu continuar.');
             }
           }
-        }).catch(err => console.error('Erro no Auto-Pilot IA:', err));
+        }).catch(err => {
+          statsRef.current.isAiAnalyzing = false;
+          console.error('Erro no Auto-Pilot IA:', err);
+        });
       }
     }
   };
