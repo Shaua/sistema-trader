@@ -22,16 +22,20 @@ Aqui está o estado atual do robô do usuário:
 - Configuração do Robô: ${JSON.stringify(botState.config || {})}
 - Diagnóstico / Status: ${JSON.stringify(botState.stats || {})}
 
-Você deve responder SEMPRE em formato JSON com a seguinte estrutura:
+Você deve responder SEMPRE em formato JSON estrito (sem comentários) com a seguinte estrutura:
 {
   "reply": "A sua mensagem de resposta em Markdown para o usuário, seja conciso e estratégico.",
-  "suggestedConfigChanges": { // Apenas se o usuário pedir para mudar algo, retorne as chaves/valores da config para alterar.
-     "mode": "veloz", // ou "balanceado", "preciso", "hibrido"
+  "suggestedConfigChanges": {
+     "mode": "veloz",
      "lossLimit": 15,
      "targetProfit": 2,
-     "riskManagement": "conservador" // ou "agressivo", "amortizacao"
+     "riskManagement": "conservador"
   }
 }
+Instruções sobre os campos:
+- suggestedConfigChanges: Apenas se o usuário pedir para mudar algo, retorne as chaves/valores.
+- mode: opções são "veloz", "balanceado", "preciso", "hibrido"
+- riskManagement: opções são "conservador", "agressivo", "amortizacao"
 Não inclua crases de markdown no JSON retornado.`;
 
     const result = await aiService.processChat(message, systemInstruction);
@@ -79,13 +83,17 @@ Aqui estão as estatísticas atuais da sessão:
 - Gerenciamento Atual: ${config.riskManagement}
 
 Avalie a situação e decida se deve intervir.
-Responda APENAS com um JSON neste formato:
+Responda APENAS com um JSON estrito (sem comentários) neste formato:
 {
-  "action": "continue", // ou "pause" ou "change_mode"
-  "duration_ticks": 0, // se action for "pause", quantidade de ticks para resfriar (ex: 300 = 5 mins)
-  "mode": "", // se action for "change_mode", o novo modo sugerido (ex: "balanceado")
+  "action": "continue",
+  "duration_ticks": 0,
+  "mode": "",
   "reason": "Sua justificativa para a ação, será exibida na tela do usuário."
 }
+Instruções sobre os campos:
+- action: pode ser "continue", "pause" ou "change_mode".
+- duration_ticks: se action for "pause", quantidade de ticks para resfriar (ex: 300 = 5 mins).
+- mode: se action for "change_mode", o novo modo sugerido (ex: "balanceado").
 Não coloque crases markdown no JSON.`;
 
     const result = await aiService.processChat('Analise os dados e aja.', systemInstruction);
