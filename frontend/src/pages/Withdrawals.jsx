@@ -30,7 +30,7 @@ export default function Withdrawals() {
   const fetchWithdrawals = async () => {
     try {
       const res = await api.get('/withdrawals')
-      if (res.data?.length) setWithdrawals(res.data)
+      if (Array.isArray(res.data)) setWithdrawals(res.data)
     } catch { /* usar demo */ }
   }
 

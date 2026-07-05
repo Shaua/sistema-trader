@@ -23,7 +23,7 @@ export default function Deposits() {
   const currency = bankConfig?.currency || 'USD'
 
   useEffect(() => {
-    api.get('/deposits').then(r => { if (r.data?.length) setDeposits(r.data) }).catch(() => {})
+    api.get('/deposits').then(r => { if (Array.isArray(r.data)) setDeposits(r.data) }).catch(() => {})
   }, [])
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
