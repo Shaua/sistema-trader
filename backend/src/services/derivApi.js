@@ -108,10 +108,10 @@ async function processTransactions(transactions, userId, accountType, finalAppId
   let syncedCount = 0;
 
   for (const trade of transactions) {
-    // Como a Deriv pode omitir o app_id, só ignoramos se houver um app_id explicitamente diferente
-    if (trade.app_id && String(trade.app_id) !== String(finalAppId)) {
-      continue;
-    }
+    // Removida a trava de app_id para permitir que operações de robôs sejam sincronizadas
+    // if (trade.app_id && String(trade.app_id) !== String(finalAppId)) {
+    //   continue;
+    // }
 
     const result = parseFloat(trade.sell_price) > parseFloat(trade.buy_price) ? 'WIN' : 'LOSS';
     const profitLoss = parseFloat(trade.sell_price) - parseFloat(trade.buy_price);
