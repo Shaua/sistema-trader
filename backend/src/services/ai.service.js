@@ -33,6 +33,14 @@ class AIService {
       return JSON.parse(response.text);
     } catch (error) {
       console.error('[AI Service] Erro no processChat:', error);
+      
+      const errMsg = error.message || '';
+      if (error.status === 429 || errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        const friendlyError = new Error('Limite gratuito da IA atingido (Quota Exceeded). Atualize sua chave de API do Gemini ou aguarde.');
+        friendlyError.isQuotaError = true;
+        throw friendlyError;
+      }
+      
       throw error;
     }
   }

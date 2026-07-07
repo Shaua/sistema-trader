@@ -80,7 +80,11 @@ Exemplo: { "reply": "seu texto do relatorio aqui" }`;
       try {
         const { data: users } = await supabase.from('user_profiles').select('id');
         if (users && users.length > 0) {
-          await this.sendTelegramAlert(`⚠️ *Falha Crítica no Auto-Pilot / Relatório IA* ⚠️\n\nErro interno detectado: _${err.message}_`, users[0].id);
+          if (err.isQuotaError || err.status === 429 || err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+            await this.sendTelegramAlert(`⚠️ *Aviso de Limite da IA* ⚠️\n\nO limite gratuito diário da inteligência artificial foi atingido (Quota exceeded). Por favor, aguarde alguns minutos ou atualize sua chave de API do Gemini para continuar recebendo análises.`, users[0].id);
+          } else {
+            await this.sendTelegramAlert(`⚠️ *Falha Crítica no Auto-Pilot / Relatório IA* ⚠️\n\nErro interno detectado: _${err.message}_`, users[0].id);
+          }
         }
       } catch(e) {}
     }
