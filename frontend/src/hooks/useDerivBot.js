@@ -764,15 +764,15 @@ export default function useDerivBot() {
       if (!isVirtualLossNow) {
         statsRef.current.ghostConsecutiveWins = (statsRef.current.ghostConsecutiveWins || 0) + 1;
         
-        if (statsRef.current.ghostConsecutiveWins >= 3) {
+        if (statsRef.current.ghostConsecutiveWins >= 2) {
           statsRef.current.ghostMode = false;
           statsRef.current.virtualLossCount = 0;
           statsRef.current.ghostConsecutiveWins = 0;
-          statsRef.current.diagnostic.radarMessage = 'Ghost Win Triplo Confirmado! Retornando ao mercado real...';
+          statsRef.current.diagnostic.radarMessage = 'Ghost Win Duplo Confirmado! Retornando ao mercado real...';
           setStats({ ...statsRef.current });
           setStatus('Buscando trades reais...');
         } else {
-          statsRef.current.diagnostic.radarMessage = `Ghost Win (${statsRef.current.ghostConsecutiveWins}/3). Aguardando confirmação...`;
+          statsRef.current.diagnostic.radarMessage = `Ghost Win (${statsRef.current.ghostConsecutiveWins}/2). Aguardando confirmação...`;
           setStats({ ...statsRef.current });
           setStatus('Ghost Mode: Confirmando tendência...');
         }
@@ -842,9 +842,8 @@ export default function useDerivBot() {
       statsRef.current.diagnostic.highInLast10 = highInLast10;
       
       // Tolerância menor: se tem mais de 2 dígitos ruins nos últimos 10 ticks, o mercado está perigoso.
-      // Se o targetLosses for muito alto, permitimos targetLosses para não causar deadlock, mas limitamos fortemente.
-      // Em vez de somar folga (+1), cravamos no estrito limite.
-      const allowedMicroLosses = Math.max(2, targetLosses);
+      // Adicionamos +1 de folga sobre o targetLosses para evitar gargalos excessivos durante o Martingale
+      const allowedMicroLosses = Math.max(2, targetLosses + 1);
 
       // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
       if (highInLast10 > allowedMicroLosses) {
