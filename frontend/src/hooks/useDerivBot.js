@@ -764,15 +764,15 @@ export default function useDerivBot() {
       if (!isVirtualLossNow) {
         statsRef.current.ghostConsecutiveWins = (statsRef.current.ghostConsecutiveWins || 0) + 1;
         
-        if (statsRef.current.ghostConsecutiveWins >= 2) {
+        if (statsRef.current.ghostConsecutiveWins >= 3) {
           statsRef.current.ghostMode = false;
           statsRef.current.virtualLossCount = 0;
           statsRef.current.ghostConsecutiveWins = 0;
-          statsRef.current.diagnostic.radarMessage = 'Ghost Win Duplo Confirmado! Retornando ao mercado real...';
+          statsRef.current.diagnostic.radarMessage = 'Ghost Win Triplo Confirmado! Retornando ao mercado real...';
           setStats({ ...statsRef.current });
           setStatus('Buscando trades reais...');
         } else {
-          statsRef.current.diagnostic.radarMessage = 'Ghost Win (1/2). Aguardando confirmação...';
+          statsRef.current.diagnostic.radarMessage = `Ghost Win (${statsRef.current.ghostConsecutiveWins}/3). Aguardando confirmação...`;
           setStats({ ...statsRef.current });
           setStatus('Ghost Mode: Confirmando tendência...');
         }
@@ -827,7 +827,7 @@ export default function useDerivBot() {
     // Aumenta a exigência gráfica nos Martingales, mas sem exagerar para não congelar o robô
     if (statsRef.current.martingaleLevel >= 1) {
       if (configRef.current.mode === 'veloz' || configRef.current.mode === 'balanceado') {
-        targetLosses = 2; // Limite máximo de 2 perdas virtuais seguidas para garantir rapidez
+        targetLosses = 3; // Limite máximo de 3 perdas virtuais seguidas para garantir segurança no Martingale
       } else {
         targetLosses += 1; // Modos preciso/sniper ganham +1 de exigência no martingale
       }
@@ -841,11 +841,10 @@ export default function useDerivBot() {
       const highInLast10 = last10.filter(d => d === 8 || d === 9).length;
       statsRef.current.diagnostic.highInLast10 = highInLast10;
       
-      // Para modo veloz, permitimos até 2 perdas em 10 ticks para manter a agilidade
-      // BUGFIX: Se o targetLosses do Martingale for maior que 2 (ex: 3 ou 4), o radar deve permitir que esses
-      // dígitos ruins se formem sem abortar a entrada prematuramente (evitando deadlock infinito).
-      // Adicionado +1 para garantir que haja folga e não exija um cenário perfeitamente limpo irreal.
-      const allowedMicroLosses = configRef.current.mode === 'veloz' ? Math.max(3, targetLosses + 1) : targetLosses + 1;
+      // Tolerância menor: se tem mais de 2 dígitos ruins nos últimos 10 ticks, o mercado está perigoso.
+      // Se o targetLosses for muito alto, permitimos targetLosses para não causar deadlock, mas limitamos fortemente.
+      // Em vez de somar folga (+1), cravamos no estrito limite.
+      const allowedMicroLosses = Math.max(2, targetLosses);
 
       // Só bloqueia se tiver mais dígitos ruins agrupados do que o nosso alvo permite
       if (highInLast10 > allowedMicroLosses) {
