@@ -82,18 +82,16 @@ Aqui estão as estatísticas atuais da sessão:
 - Modo Atual: ${config.mode}
 - Gerenciamento Atual: ${config.riskManagement}
 
-Avalie a situação e decida se deve intervir.
+Avalie a situação e decida se deve intervir com uma pausa.
 Responda APENAS com um JSON estrito (sem comentários) neste formato:
 {
   "action": "continue",
   "duration_ticks": 0,
-  "mode": "",
   "reason": "Sua justificativa para a ação, será exibida na tela do usuário."
 }
 Instruções sobre os campos:
-- action: pode ser "continue", "pause" ou "change_mode".
+- action: pode ser "continue" ou "pause". Você NÃO PODE alterar modo, gerenciamento ou estratégia. Apenas pausar.
 - duration_ticks: se action for "pause", quantidade de ticks para resfriar (ex: 300 = 5 mins).
-- mode: se action for "change_mode", o novo modo sugerido (ex: "balanceado").
 Não coloque crases markdown no JSON.`;
 
     const result = await aiService.processChat('Analise os dados e aja.', systemInstruction);
