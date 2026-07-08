@@ -504,9 +504,14 @@ export default function useDerivBot() {
   }, [profile, activeAccountType]);
 
   useEffect(() => {
-    connect();
     return () => {
       isComponentMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    connect();
+    return () => {
       if (ws.current) {
         ws.current.onclose = null;
         if (workerRef.current) {
