@@ -1,0 +1,17 @@
+name: Ping Render to Keep Alive
+
+on:
+  schedule:
+    # Executa a cada 14 minutos para evitar que o serviço do Render "durma" (ele dorme com 15 minutos de inatividade)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Permite que você também rode esse script manualmente
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Realizar ping na aplicação Render
+        run: |
+          # Substitua a URL abaixo pela URL real do seu sistema no Render
+          curl -s https://SEU_APP.onrender.com > /dev/null
+          echo "Ping realizado com sucesso!"
