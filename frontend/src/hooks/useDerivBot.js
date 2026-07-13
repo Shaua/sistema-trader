@@ -833,9 +833,10 @@ export default function useDerivBot() {
     if (statsRef.current.martingaleLevel >= 1) {
       if (configRef.current.mode === 'veloz' || configRef.current.mode === 'balanceado') {
         targetLosses = 3; // Limite máximo de 3 perdas virtuais seguidas para garantir segurança no Martingale
-      } else {
-        targetLosses += 1; // Modos preciso/sniper ganham +1 de exigência no martingale
+      } else if (configRef.current.mode === 'preciso') {
+        targetLosses += 1; // Modo preciso ganha +1 de exigência no martingale
       }
+      // Modo super_sniper (4) não ganha acréscimo, mantendo-se sempre em 4 perdas
     }
 
     statsRef.current.diagnostic.targetLosses = targetLosses;
