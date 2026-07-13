@@ -12,6 +12,6 @@ jobs:
     steps:
       - name: Realizar ping na aplicação Render
         run: |
-          # Substitua a URL abaixo pela URL real do seu sistema no Render
-          curl -s https://SEU_APP.onrender.com > /dev/null
+          # Faz o ping na aplicação para mantê-la ativa
+          curl -s https://sistema-trader-4w6tle4xo-shaua-s-projects.vercel.app/ > /dev/null
           echo "Ping realizado com sucesso!"
