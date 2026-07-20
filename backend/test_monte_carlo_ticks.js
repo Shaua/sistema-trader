@@ -4,8 +4,8 @@
  */
 
 const params = {
-    iterations: 1000, 
-    maxTicksPerSession: 20000,
+    iterations: 100, // 100 meses testados
+    maxTicksPerSession: 1296000, // 1 Mês em Ticks (30 * 24 * 60 * 30 ticks aprox = 1.296.000)
     payout: 0.1714,
     targetProfit: 0.33,
     stopLoss: 15.0,
