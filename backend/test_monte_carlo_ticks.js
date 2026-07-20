@@ -4,15 +4,16 @@
  */
 
 const params = {
-    iterations: 100, // 100 meses testados
-    maxTicksPerSession: 1296000, // 1 Mês em Ticks (30 * 24 * 60 * 30 ticks aprox = 1.296.000)
+    iterations: 100, // 100 sessões de 15 horas
+    maxTicksPerSession: 27000, // 15 Horas em Ticks (15 * 60 * 30 ticks aprox = 27.000)
     payout: 0.1714,
-    targetProfit: 0.33,
-    stopLoss: 15.0,
+    targetProfit: 5.00, // Lucro Alvo 
+    stopLoss: 100.0,    // Stop Loss da banca
     initialStake: 0.35,
     maxMartingale: 3,
     martingaleMultiplier: 2.7,
-    targetLosses: 4 // Super Sniper
+    targetLosses: 3, // Gatilho alvo real atual (3 perdas virtuais)
+    enableAiRegulator: true // Simulação do comportamento da Inteligência Artificial
 };
 
 console.log('=== Iniciando Simulação Monte Carlo por Ticks (Com Escudos) ===');
@@ -93,10 +94,19 @@ for (let iter = 0; iter < params.iterations; iter++) {
                 ghostEntryWait = false;
                 
                 martingaleLevel++;
+                
+                // --- Intervenção da IA Simulada ---
+                if (params.enableAiRegulator && martingaleLevel >= 2) {
+                    // IA detectou perigo (Martingale Nível 2). 
+                    // Força um resfriamento profundo de 5 a 10 minutos (150 a 300 ticks)
+                    const aiCooldown = 150 + Math.floor(Math.random() * 150);
+                    cooldownTicks += aiCooldown;
+                }
+
                 if (martingaleLevel > params.maxMartingale) {
                     currentStake = params.initialStake;
                     martingaleLevel = 0;
-                    cooldownTicks = 60; // Pausa pesada se bater o limite
+                    cooldownTicks = 300; // Pausa ainda mais severa se quebrar a perna de 3
                 } else {
                     currentStake = currentStake * params.martingaleMultiplier;
                 }
