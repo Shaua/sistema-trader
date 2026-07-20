@@ -410,18 +410,18 @@ export default function useDerivBot() {
           const timeSinceLastMsg = now - lastMessageTimeRef.current;
           const timeSinceLastTick = now - socket.lastTickTime;
           
-          if (timeSinceLastMsg > 20000) {
-            console.log('Websocket timeout detectado (sem mensagens por 20s). Forçando reconexão...');
+          if (timeSinceLastMsg > 60000) {
+            console.log('Websocket timeout detectado (sem mensagens por 60s). Forçando reconexão...');
             socket.close(); // Dispara o onclose automaticamente e reconecta
-          } else if (isRunningRef.current && timeSinceLastTick > 30000) {
-            // Se está rodando, mas não recebe ticks há 30s (e não está em pausa intencional sem ticks)
+          } else if (isRunningRef.current && timeSinceLastTick > 90000) {
+            // Se está rodando, mas não recebe ticks há 90s (e não está em pausa intencional sem ticks)
             const st = statusRef.current;
             const isPaused = (st.includes('Ciclo') && st.includes('Concluído! Pausa')) || 
                              st.includes('Aguardando próximo') || 
                              st.includes('Limite de ciclos') || 
                              st.includes('Sessão encerrada');
             if (!isPaused) {
-              console.log('Tick stream timeout detectado (sem ticks por 30s). A API da Deriv parou de enviar o fluxo. Forçando reconexão...');
+              console.log('Tick stream timeout detectado (sem ticks por 90s). A API da Deriv parou de enviar o fluxo. Forçando reconexão...');
               setStatus('Fluxo de dados interrompido. Reconectando...');
               socket.close();
             }
