@@ -12,12 +12,13 @@
 const args = process.argv.slice(2);
 const params = {
     iterations: 10000,
-    winRate: 50.0,
-    payout: 0.94,
-    targetProfit: 5.0,
+    winRate: 80.0, // DIGITUNDER 8 tem 80% de win rate
+    payout: 0.1714, // Payout médio estimado da estratégia LOW
+    targetProfit: 0.33,
     stopLoss: 15.0,
     initialStake: 0.35,
-    maxMartingale: 4
+    maxMartingale: 3,
+    martingaleMultiplier: 2.7 // Hit and Run
 };
 
 // Simple argument parser
@@ -31,10 +32,10 @@ for (let i = 0; i < args.length; i++) {
     }
 }
 
-console.log('=== Iniciando Simulação Monte Carlo ===');
+console.log('=== Iniciando Simulação Monte Carlo (Super Sniper / Hit and Run) ===');
 console.log('Parâmetros Atuais:');
 console.log(JSON.stringify(params, null, 2));
-console.log('=======================================\n');
+console.log('====================================================================\n');
 
 let successCount = 0;
 let failCount = 0;
@@ -46,6 +47,7 @@ for (let i = 0; i < params.iterations; i++) {
     let currentStake = params.initialStake;
     let martingaleLevel = 0;
     let maxDrawdown = 0;
+    let guaranteedFloor = 0; // Trailing Stop
     
     let isSessionActive = true;
     
@@ -66,17 +68,26 @@ for (let i = 0; i < params.iterations; i++) {
             // Increment Martingale
             martingaleLevel++;
             if (martingaleLevel > params.maxMartingale) {
-                // Return to initial stake Se limite de martingale for atingido, assumimos perda pesada e reseta
+                // Return to initial stake Se limite de martingale for atingido
                 currentStake = params.initialStake;
                 martingaleLevel = 0;
             } else {
-                currentStake = currentStake * 2; // Multiplicador básico de Martingale (pode ser ajustado)
+                currentStake = currentStake * params.martingaleMultiplier;
             }
         }
         
         // Check Drawdown
         if (balance < maxDrawdown) {
             maxDrawdown = balance;
+        }
+
+        // Lógica de Trailing Stop / Piso Garantido (do useDerivBot.js)
+        if (params.targetProfit > 0) {
+            if (balance >= params.targetProfit * 0.9 && guaranteedFloor < params.targetProfit * 0.6) {
+                guaranteedFloor = params.targetProfit * 0.6;
+            } else if (balance >= params.targetProfit * 0.7 && guaranteedFloor < params.targetProfit * 0.3) {
+                guaranteedFloor = params.targetProfit * 0.3;
+            }
         }
         
         // Verificações de parada
@@ -85,6 +96,10 @@ for (let i = 0; i < params.iterations; i++) {
             isSessionActive = false;
         } else if (balance <= -params.stopLoss) {
             failCount++;
+            isSessionActive = false;
+        } else if (guaranteedFloor > 0 && balance < guaranteedFloor && balance > 0) {
+            // Saiu pelo Trailing Stop (garantiu o piso)
+            successCount++; // Conta como sucesso, pois saiu no lucro garantido
             isSessionActive = false;
         }
     }
