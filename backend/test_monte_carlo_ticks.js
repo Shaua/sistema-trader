@@ -4,8 +4,8 @@
  */
 
 const params = {
-    iterations: 1000, // Cada iteração é uma sessão completa de mercado (até bater meta ou stop)
-    maxTicksPerSession: 500000, // Limite de tempo (ticks) para evitar loop infinito
+    iterations: 1000, 
+    maxTicksPerSession: 20000,
     payout: 0.1714,
     targetProfit: 0.33,
     stopLoss: 15.0,
@@ -25,14 +25,9 @@ let totalProfit = 0;
 let maxDrawdownOverall = 0;
 
 let totalTradesTaken = 0;
-let totalBlackSwansAvoided = 0;
 
-// Função para gerar ticks com injeção de "Cisne Negro" ocasional
-function generateNextTick(isBlackSwanActive) {
-    if (isBlackSwanActive) {
-        // 80% de chance de ser um dígito ruim (8 ou 9) durante o cisne negro
-        return Math.random() < 0.8 ? (Math.random() < 0.5 ? 8 : 9) : Math.floor(Math.random() * 8);
-    }
+// Função para gerar ticks simulando o mercado real (0 a 9)
+function generateNextTick() {
     return Math.floor(Math.random() * 10);
 }
 
@@ -50,6 +45,7 @@ for (let iter = 0; iter < params.iterations; iter++) {
     let ghostMode = false;
     let ghostEntryWait = false;
     let ghostConsecutiveWins = 0;
+    let consecutiveWins = 0;
     
     // Estado de Trade
     let isTrading = false;
@@ -57,26 +53,10 @@ for (let iter = 0; iter < params.iterations; iter++) {
     let isSessionActive = true;
     let tickCount = 0;
     
-    // Variáveis de Cisne Negro
-    let blackSwanActive = false;
-    let blackSwanTicksLeft = 0;
-    
     while (isSessionActive && tickCount < params.maxTicksPerSession) {
         tickCount++;
         
-        // --- Gerador de Mercado ---
-        if (blackSwanTicksLeft > 0) {
-            blackSwanTicksLeft--;
-            if (blackSwanTicksLeft === 0) blackSwanActive = false;
-        } else {
-            // 0.5% de chance de iniciar um cisne negro (tendência de 10 a 20 ticks ruins)
-            if (Math.random() < 0.005) {
-                blackSwanActive = true;
-                blackSwanTicksLeft = Math.floor(Math.random() * 10) + 10;
-            }
-        }
-        
-        const currentTick = generateNextTick(blackSwanActive);
+        const currentTick = generateNextTick();
         
         recentDigits.push(currentTick);
         if (recentDigits.length > 100) {
@@ -96,8 +76,16 @@ for (let iter = 0; iter < params.iterations; iter++) {
                 // Reset após vitória
                 currentStake = params.initialStake;
                 martingaleLevel = 0;
+                consecutiveWins++;
+                
+                // Win-streak Breaker
+                if (consecutiveWins >= 12) {
+                    cooldownTicks = 30;
+                    consecutiveWins = 0;
+                }
             } else {
                 balance -= currentStake;
+                consecutiveWins = 0;
                 
                 // Aplicar Escudos após o Loss
                 cooldownTicks = 25; // Cooldown padrão do Super Sniper após loss
@@ -120,10 +108,12 @@ for (let iter = 0; iter < params.iterations; iter++) {
             }
             
             // Trailing Stop
-            if (balance >= params.targetProfit * 0.9 && guaranteedFloor < params.targetProfit * 0.6) {
-                guaranteedFloor = params.targetProfit * 0.6;
-            } else if (balance >= params.targetProfit * 0.7 && guaranteedFloor < params.targetProfit * 0.3) {
-                guaranteedFloor = params.targetProfit * 0.3;
+            if (params.targetProfit > 0) {
+                if (balance >= params.targetProfit * 0.9 && guaranteedFloor < params.targetProfit * 0.6) {
+                    guaranteedFloor = params.targetProfit * 0.6;
+                } else if (balance >= params.targetProfit * 0.7 && guaranteedFloor < params.targetProfit * 0.3) {
+                    guaranteedFloor = params.targetProfit * 0.3;
+                }
             }
             
             // Verificações de parada de sessão
@@ -177,7 +167,6 @@ for (let iter = 0; iter < params.iterations; iter++) {
         }
         
         if (blockedByRadar) {
-            if (blackSwanActive) totalBlackSwansAvoided++;
             continue;
         }
         
@@ -235,12 +224,11 @@ const failRate = ((failCount / params.iterations) * 100).toFixed(2);
 const averageProfit = (totalProfit / params.iterations).toFixed(2);
 const avgTradesPerSession = (totalTradesTaken / params.iterations).toFixed(1);
 
-console.log('=== Resultados da Simulação (Com Escudos Reais) ===');
+console.log('=== Resultados da Simulação (Mercado Natural + Escudos) ===');
 console.log(`Total de Sessões Simuladas: ${params.iterations}`);
 console.log(`Sucesso (Bateu a Meta): ${successCount} (${successRate}%)`);
 console.log(`Falha (Bateu Stop Loss): ${failCount} (${failRate}%)`);
 console.log(`Lucro Médio por Sessão: $${averageProfit}`);
 console.log(`Drawdown Máximo Observado: -$${maxDrawdownOverall.toFixed(2)}`);
 console.log(`Média de Trades Reais por Sessão: ${avgTradesPerSession}`);
-console.log(`Sinais Falsos/Cisnes Negros Esquivados: ${totalBlackSwansAvoided}`);
-console.log('====================================================');
+console.log('===========================================================');
