@@ -12,7 +12,7 @@ function isAlphanumericAppId(appId) {
 /**
  * Inicia a conexão em tempo real com a Deriv para um usuário.
  */
-async function startRealtimeSync(userId, token, accountType = 'REAL', appId = null) {
+async function startRealtimeSync(userId, token, accountType = 'REAL', appId = null, retryCount = 0) {
   const finalAppId = appId || 1089;
   const isNewFlow = isAlphanumericAppId(appId);
   const connectionKey = `${userId}_${accountType}`;
@@ -22,9 +22,10 @@ async function startRealtimeSync(userId, token, accountType = 'REAL', appId = nu
     return;
   }
 
-  console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType}) [Flow: ${isNewFlow ? 'OTP' : 'Classic'}]...`);
+  console.log(`[Realtime] Iniciando conexão para o usuário ${userId} (${accountType}) [Flow: ${isNewFlow ? 'OTP' : 'Classic'}] (Tentativa ${retryCount + 1})...`);
   
   let wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${finalAppId}`;
+  let currentRetryCount = retryCount;
 
   if (isNewFlow) {
     try {
@@ -45,6 +46,14 @@ async function startRealtimeSync(userId, token, accountType = 'REAL', appId = nu
       wsUrl = otpRes.data.data.url;
     } catch (err) {
       console.error(`[Realtime] Falha ao iniciar OTP para ${userId} (${accountType}):`, err.message);
+      
+      // Implementa backoff também se falhar a REST API do OTP
+      const nextRetry = currentRetryCount + 1;
+      const delay = Math.min(10000 * Math.pow(2, currentRetryCount), 300000); // Max 5 min
+      console.log(`[Realtime] Falha REST OTP. Tentando reconectar em ${delay/1000}s...`);
+      setTimeout(() => {
+        startRealtimeSync(userId, token, accountType, appId, nextRetry);
+      }, delay);
       return;
     }
   }
@@ -58,6 +67,7 @@ async function startRealtimeSync(userId, token, accountType = 'REAL', appId = nu
     } else {
       console.log(`[Realtime] OTP Conectado para ${userId} (${accountType}). Assinando transactions...`);
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
+      currentRetryCount = 0; // Zera o contador após sucesso
     }
   });
 
@@ -70,6 +80,7 @@ async function startRealtimeSync(userId, token, accountType = 'REAL', appId = nu
     
     if (msg.msg_type === 'authorize') {
       console.log(`[Realtime] Autenticado para ${userId} (${accountType}). Assinando transactions...`);
+      currentRetryCount = 0; // Zera o contador após autenticar com sucesso no fluxo clássico
       // 2. Assinar stream de transações (fluxo clássico)
       ws.send(JSON.stringify({ transaction: 1, subscribe: 1 }));
       
@@ -91,15 +102,19 @@ async function startRealtimeSync(userId, token, accountType = 'REAL', appId = nu
   });
 
   ws.on('close', () => {
-    console.log(`[Realtime] Conexão fechada para ${userId} (${accountType}). Tentando reconectar em 10s...`);
+    const nextRetry = currentRetryCount + 1;
+    const delay = Math.min(10000 * Math.pow(2, currentRetryCount), 300000); // Exponential backoff max 5 min
+    console.log(`[Realtime] Conexão fechada para ${userId} (${accountType}). Tentando reconectar em ${delay/1000}s (Tentativa ${nextRetry})...`);
     activeConnections.delete(connectionKey);
     setTimeout(() => {
-      startRealtimeSync(userId, token, accountType, appId);
-    }, 10000);
+      startRealtimeSync(userId, token, accountType, appId, nextRetry);
+    }, delay);
   });
   
   ws.on('error', (err) => {
     console.error(`[Realtime] Erro na conexão WS do usuário ${userId} (${accountType}):`, err.message);
+    // ws.close() é chamado automaticamente em alguns casos de erro, mas forçamos aqui para garantir que o 'close' event fire.
+    // O evento 'close' irá lidar com o retry e backoff.
     ws.close();
   });
 
