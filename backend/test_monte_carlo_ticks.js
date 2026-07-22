@@ -3,18 +3,34 @@
  * Com Escudos Ativos (Super Sniper, Radares, Ghost Mode, Cooldowns)
  */
 
+const args = process.argv.slice(2);
 const params = {
     iterations: 100, // 100 sessões de 15 horas
     maxTicksPerSession: 27000, // 15 Horas em Ticks (15 * 60 * 30 ticks aprox = 27.000)
     payout: 0.1714,
-    targetProfit: 5.00, // Lucro Alvo 
-    stopLoss: 100.0,    // Stop Loss da banca
-    initialStake: 0.35,
+    targetProfit: 100.0, // Lucro Alvo da screenshot
+    stopLoss: 15.0,    // Stop Loss da screenshot
+    initialStake: 0.51,
     maxMartingale: 3,
     martingaleMultiplier: 2.7,
-    targetLosses: 3, // Gatilho alvo real atual (3 perdas virtuais)
+    targetLosses: 1, // Modo Veloz = 1
     enableAiRegulator: true // Simulação do comportamento da Inteligência Artificial
 };
+
+// Simple argument parser
+for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith('--')) {
+        const key = args[i].replace('--', '');
+        if (params[key] !== undefined && args[i + 1]) {
+            let val = args[i + 1];
+            if (val === 'true') val = true;
+            else if (val === 'false') val = false;
+            else val = parseFloat(val);
+            params[key] = val;
+            i++;
+        }
+    }
+}
 
 console.log('=== Iniciando Simulação Monte Carlo por Ticks (Com Escudos) ===');
 console.log('Parâmetros: ', JSON.stringify(params, null, 2));
@@ -89,7 +105,7 @@ for (let iter = 0; iter < params.iterations; iter++) {
                 consecutiveWins = 0;
                 
                 // Aplicar Escudos após o Loss
-                cooldownTicks = 25; // Cooldown padrão do Super Sniper após loss
+                cooldownTicks = params.targetLosses === 1 ? 8 : 25; // Cooldown padrão após loss
                 ghostMode = true;
                 ghostEntryWait = false;
                 
