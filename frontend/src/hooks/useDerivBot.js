@@ -980,7 +980,11 @@ export default function useDerivBot() {
 
     isTradingRef.current = false;
 
-    const profit = parseFloat(contract.profit);
+    let profit = parseFloat(contract.profit);
+    if (isNaN(profit)) {
+      console.warn("Deriv API retornou profit inválido, assumindo 0", contract);
+      profit = 0;
+    }
     const won = profit > 0;
     
     statsRef.current.profit += profit;
@@ -1177,9 +1181,9 @@ export default function useDerivBot() {
       // Lógica de Ciclo Convencional (Outros Modos)
       // -----------------------------------------------------
       // Resolve o bug de precisão de ponto flutuante do JavaScript
-      if (statsRef.current.cycleProfit >= -0.01) {
+      if (statsRef.current.cycleProfit >= -0.05) {
         // Ciclo encerrado com lucro (ou zero). Reseta!
-        nextStake = configRef.current.initialStake;
+        nextStake = parseFloat(configRef.current.initialStake);
         level = 0;
         statsRef.current.cycleProfit = 0;
       } else {
@@ -1201,9 +1205,11 @@ export default function useDerivBot() {
           // Se perdeu, multiplica a aposta se ainda não bateu no limite
           if (level < maxLevel) {
             level += 1;
-            nextStake = nextStake * multiplier;
+            // Segurança Anti-Pulo: Garante que o multiplicador aja apenas sobre o stake real
+            const safeBaseStake = statsRef.current.currentStake;
+            nextStake = safeBaseStake * multiplier;
           } else {
-            nextStake = configRef.current.initialStake;
+            nextStake = parseFloat(configRef.current.initialStake);
             level = 0;
             statsRef.current.cycleProfit = 0;
             statsRef.current.cooldownTicks = 60;
@@ -1216,7 +1222,7 @@ export default function useDerivBot() {
           } else {
             setStatus('Recuperação parcial concluída. Reiniciando por segurança...');
             level = 0;
-            nextStake = configRef.current.initialStake;
+            nextStake = parseFloat(configRef.current.initialStake);
             statsRef.current.cycleProfit = 0;
             statsRef.current.fixedInstallment = 0;
           }
@@ -1235,6 +1241,13 @@ export default function useDerivBot() {
     }
     
     nextStake = parseFloat(nextStake.toFixed(2));
+    
+    // Trava de Segurança: nextStake não pode ser maior que o salto lógico permitido (Anti-Bug de Pulo)
+    const maxAllowedStake = (statsRef.current.currentStake * multiplier * 1.05); // 5% de margem
+    if (nextStake > maxAllowedStake && statsRef.current.martingaleLevel < level) {
+       console.warn(`Correção Anti-Pulo Ativada! Tentativa de saltar para ${nextStake}. Corrigido para ${maxAllowedStake}`);
+       nextStake = parseFloat((statsRef.current.currentStake * multiplier).toFixed(2));
+    }
     
     // Trava 1: Limite máximo de aposta (Max Stake)
     if (configRef.current.maxStake > 0 && nextStake > configRef.current.maxStake) {
